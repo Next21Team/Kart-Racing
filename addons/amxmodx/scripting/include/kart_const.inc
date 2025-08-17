@@ -1,0 +1,31 @@
+#if defined _kartconst_included
+    #endinput
+#endif
+#define _kartconst_included
+
+enum GameState
+{
+	GS_PREPARING,
+	GS_STARTING,
+	GS_PLAYING
+};
+
+enum PlayerGameState
+{
+	PGS_DISCONNECTED,
+	PGS_PREPARING,
+	PGS_READY,
+	PGS_INGAME,
+	PGS_SPECTATOR
+};
+
+#define IMPULSE_CAR 			637000
+#define IMPULSE_CHECKPOINT 		637001
+#define IMPULSE_RESETZONE 		637002
+#define IMPULSE_ITEMBOX 		637010
+#define IMPULSE_SNOWBALL 		637020
+#define IMPULSE_BLOWFISH 		637030
+#define IMPULSE_TORNADO 		637040
+#define IMPULSE_UFOSPAWN		637050
+#define IMPULSE_UFO				637051
+#define IMPULSE_GRASS 			637500

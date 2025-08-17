@@ -1,0 +1,41 @@
+[en]
+KART_WAITING = WAITING FOR PLAYERS
+KART_LAP = LAP %d
+KART_FINAL_LAP = FINAL LAP
+KART_FINISH = FINISH
+KART_ENDING = Ending: %i
+
+KART_CHAR_MENU_TITLE = Character Select
+KART_CHAR_MENU_NEXT = Next Char
+KART_CHAR_MENU_PREV = Prev Char
+KART_CHAR_MENU_COLOR = Color++
+KART_CHAR_MENU_COLOR2 = Color+
+KART_CHAR_MENU_COLOR3 = Color-
+KART_CHAR_MENU_RANDOM = Random
+KART_CHAR_MENU_START = Start
+
+KART_SA_MENU_TITLE = Go to observation?
+
+KART_SPECTATOR_FREE = FREE OBSERVATION (M)
+KART_SPECTATOR_TARGET = [%d] %n
+
+[ru]
+KART_WAITING = ОЖИДАНИЕ ИГРОКОВ
+KART_LAP = КРУГ %d
+KART_FINAL_LAP = ПОСЛЕДНИЙ КРУГ
+KART_FINISH = ФИНИШ
+KART_ENDING = Завершение: %i
+
+KART_CHAR_MENU_TITLE = Выбор персонажа
+KART_CHAR_MENU_NEXT = Следующий персонаж
+KART_CHAR_MENU_PREV = Предыдущий персонаж
+KART_CHAR_MENU_COLOR = Цвет++
+KART_CHAR_MENU_COLOR2 = Цвет+
+KART_CHAR_MENU_COLOR3 = Цвет-
+KART_CHAR_MENU_RANDOM = Случайно
+KART_CHAR_MENU_START = Старт
+
+KART_SA_MENU_TITLE = Перейти в наблюдение?
+
+KART_SPECTATOR_FREE = СВОБОДНОЕ НАБЛЮДЕНИЕ (M)
+KART_SPECTATOR_TARGET = [%d] %n
