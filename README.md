@@ -30,7 +30,7 @@ https://www.dropbox.com/scl/fi/vhsxaphr8u1gttf07w6ig/kart_assets.zip?rlkey=7hgxl
 Racing tracks:
 https://www.dropbox.com/scl/fi/0bmouxi5uqwplbb7gi17c/kart_maps.zip?rlkey=hsscyz8qai8cbszb6bgy4o0kt&dl=0
 
-A guide for creating race tracks (in Russian):
+A guide for creating racing tracks (in Russian):
 https://docs.google.com/document/d/e/2PACX-1vTGj_rEpevZ-I7QJcQ16LvH8X7yDfPXAVsWYqJJ6dRNQr6cNomkB0K8M5dLGjuDXmkj3gOAK_Jm7C3u/pub
 
 ## Requirements

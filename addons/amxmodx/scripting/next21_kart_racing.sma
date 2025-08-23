@@ -16,7 +16,7 @@ new const MODEL_KART_PACKS[][] = {
 	"models/next21_kart/kart_pack02_a04.mdl",
 	"models/next21_kart/kart_pack03_a04.mdl",
 	"models/next21_kart/kart_pack04_a02.mdl",
-	"models/next21_kart/kart_pack05_a01.mdl"
+	"models/next21_kart/kart_pack05_a02.mdl"
 }
 
 new const MODEL_CAMERA[] = "models/rpgrocket.mdl"
@@ -79,7 +79,7 @@ new const SOUND_SYS_SELECT[] = "next21_kart/system_select.wav"
 
 new const SKYNAME[] = "drcrash2"
 
-#define CHAR_NUM		33
+#define CHAR_NUM		40
 #define CHAR_PACK_SIZE	8
 
 #define UI_POS_NUM		32
