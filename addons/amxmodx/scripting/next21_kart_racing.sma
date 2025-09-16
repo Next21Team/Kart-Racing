@@ -88,9 +88,7 @@ new const SKYNAME[] = "drcrash2"
 #define UI_SEQ_GIVE_ITEM		1
 
 #define STARTING_TIME		3
-#define ENDING_TIME			25
 
-#define WAIT_PLAYERS_TIME	45.0
 #define UPDATE_POS_TIME		1.0
 
 #define MAX_POS_LIST_ROWS	8
@@ -333,6 +331,8 @@ new g_iFinishCP
 
 new g_pCvarLapsNum
 new g_pCvarReverseAvailable
+new g_pCvarStartWaitingTime
+new g_pCvarEndingTime
 
 new g_msgHideWeapon
 new g_msgScoreInfo
@@ -533,6 +533,8 @@ public plugin_init()
 
 	bind_pcvar_num(register_cvar("kart_laps_num", "3"), g_pCvarLapsNum)
 	bind_pcvar_num(register_cvar("kart_reverse_available", "0"), g_pCvarReverseAvailable)
+	bind_pcvar_num(register_cvar("kart_start_waiting_time", "45"), g_pCvarStartWaitingTime)
+	bind_pcvar_num(register_cvar("kart_ending_time", "25"), g_pCvarEndingTime)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
@@ -693,7 +695,7 @@ set_game_state(GameState:gameState)
 
 	switch (gameState)
 	{
-		case GS_PREPARING: set_task(WAIT_PLAYERS_TIME, "check_ready_players", TASK_WAITPLAYERS, .flags="b")
+		case GS_PREPARING: set_task(float(g_pCvarStartWaitingTime), "check_ready_players", TASK_WAITPLAYERS, .flags="b")
 		case GS_PLAYING: set_task(UPDATE_POS_TIME, "update_pos_list", TASK_UPDATEPOS, .flags="b")
 	}
 }
@@ -987,7 +989,7 @@ ready_player(iPlayer)
 				iReadyPlayersNum++
 
 		if (iReadyPlayersNum == 1)
-			change_task(TASK_WAITPLAYERS, WAIT_PLAYERS_TIME)
+			change_task(TASK_WAITPLAYERS, float(g_pCvarStartWaitingTime))
 	}
 
 	g_iPlayerPassedCP[iPlayer] = -1
@@ -2934,7 +2936,7 @@ touch_checkpoint(iEnt, iToucher)
 			if (!task_exists(TASK_ENDING))
 			{
 				new iParams[1]
-				iParams[0] = ENDING_TIME
+				iParams[0] = g_pCvarEndingTime
 				set_task(1.0, "task_ending", TASK_ENDING, iParams, 1)
 			}
 
