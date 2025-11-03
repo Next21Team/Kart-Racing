@@ -37,3 +37,6 @@ https://docs.google.com/document/d/e/2PACX-1vTGj_rEpevZ-I7QJcQ16LvH8X7yDfPXAVsWY
 
 ## Требования
 - [Reapi](https://github.com/s1lentq/reapi)
+
+## Сторонние расширения
+- [Kart Racing: NCL Hit Icons](https://github.com/Next21Team/Kart-Racing-NCL-Hit-Icons)
