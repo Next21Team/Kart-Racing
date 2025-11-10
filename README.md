@@ -23,6 +23,7 @@ In addition to the default buttons for moving the car along the highway, the fol
 - ```kart_laps_num "3"``` Number of laps in the race.
 - ```kart_reverse_available "0"``` Enable the race in the opposite direction.
 - ```kart_start_waiting_time "45"``` Waiting time (seconds) for other players before starting the game.
+- ```kart_start_min_players "2"``` Minimum number of players to start the game.
 - ```kart_ending_time "25"``` Waiting time (seconds) for other players after finishing.
 
 ## Assets

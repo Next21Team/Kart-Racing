@@ -333,6 +333,7 @@ new g_iFinishCP
 new g_pCvarLapsNum
 new g_pCvarReverseAvailable
 new g_pCvarStartWaitingTime
+new g_pCvarStartMinPlayers
 new g_pCvarEndingTime
 
 new g_msgHideWeapon
@@ -492,10 +493,6 @@ public plugin_init()
 	create_itemboxes()
 	set_items_props()
 
-	set_game_state(GS_PREPARING)
-
- 	// register_clcmd("start", "start_game")
-
 	register_clcmd("chooseteam", "cmd_chooseteam")
 	register_clcmd("jointeam", "blocked")
 	register_clcmd("drop", "cmd_drop")
@@ -533,13 +530,22 @@ public plugin_init()
 	set_cvar_float("sv_maxspeed", SPECTATOR_MAXSPEED)
 	set_cvar_string("humans_join_team", "CT")
 
+	new pCvarStartWaitingTime = register_cvar("kart_start_waiting_time", "45")
+	set_pcvar_bounds(pCvarStartWaitingTime, CvarBound_Lower, true, 1.0)
+
+	new pCvarStartMinPlayers = register_cvar("kart_start_min_players", "2")
+	set_pcvar_bounds(pCvarStartMinPlayers, CvarBound_Lower, true, 1.0)
+
 	bind_pcvar_num(register_cvar("kart_laps_num", "3"), g_pCvarLapsNum)
 	bind_pcvar_num(register_cvar("kart_reverse_available", "0"), g_pCvarReverseAvailable)
-	bind_pcvar_num(register_cvar("kart_start_waiting_time", "45"), g_pCvarStartWaitingTime)
+	bind_pcvar_num(pCvarStartWaitingTime, g_pCvarStartWaitingTime)
+	bind_pcvar_num(pCvarStartMinPlayers, g_pCvarStartMinPlayers)
 	bind_pcvar_num(register_cvar("kart_ending_time", "25"), g_pCvarEndingTime)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
+
+	set_game_state(GS_PREPARING)
 }
 
 public plugin_end()
@@ -2225,7 +2231,7 @@ public check_ready_players()
 		if (g_pgsPlayerGameState[iPlayer] == PGS_READY)
 			iReadyPlayersNum++
 
-	if (iReadyPlayersNum > 1)
+	if (iReadyPlayersNum >= g_pCvarStartMinPlayers)
 		start_game()
 	else
 		client_print(0, print_center, "%L", LANG_PLAYER, "KART_WAITING")
@@ -2579,13 +2585,13 @@ use_tornado(iPlayer, iCarEnt)
 	if (iTargetPlayer < 0)
 		return 0
 
-	new iTargetCar = g_iCarsEnt[iTargetPlayer]
+	new iTargetCarEnt = g_iCarsEnt[iTargetPlayer]
 
 	new iTornadoEnt = rg_create_entity(SZ_INFO_TARGET, true)
 	if (is_nullent(iTornadoEnt))
 		return 0
 
-	set_tornado_warn(iTargetPlayer, iTargetCar)
+	set_tornado_warn(iTargetPlayer, iTargetCarEnt)
 
 	new Float:fGameTime = get_gametime()
 	new Float:vOrigin[3]
@@ -2608,7 +2614,7 @@ use_tornado(iPlayer, iCarEnt)
 
 	set_entvar(iTornadoEnt, var_animtime, 0.0)
 	set_entvar(iTornadoEnt, var_sequence, 0)
-	set_entvar(iTornadoEnt, var_targetcar, iTargetCar)
+	set_entvar(iTornadoEnt, var_targetcar, iTargetCarEnt)
 
 	SetThink(iTornadoEnt, "fwd_TornadoThink")
 	SetTouch(iTornadoEnt, "fwd_TornadoTouch")
