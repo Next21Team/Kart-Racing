@@ -265,7 +265,8 @@ enum _:ForwardIndex
 {
 	FWD_ID_CREATE_CAR,
 	FWD_ID_SET_GAME_STATE,
-	FWD_ID_PLAYER_GAME_STATE_SET
+	FWD_ID_PLAYER_GAME_STATE_SET,
+	FWD_ID_PLAYER_LAP_PASS
 }
 
 new g_iKartPackModelIndices[sizeof MODEL_KART_PACKS]
@@ -315,7 +316,7 @@ new Float:g_vSpawnAngles[MAX_PLAYERS + 1][3]
 new g_iPlayerPrevCPId[MAX_PLAYERS + 1]
 new g_iPlayerNextCP[MAX_PLAYERS + 1]
 new g_iPlayerPassedCP[MAX_PLAYERS + 1]
-new g_iPlayerCurrLoop[MAX_PLAYERS + 1]
+new g_iPlayerCurrLap[MAX_PLAYERS + 1]
 new g_iPlayerCurrSpawn[MAX_PLAYERS + 1]
 new g_iPlayerCurrPos[MAX_PLAYERS + 1]
 
@@ -424,6 +425,7 @@ public plugin_precache()
 	g_fwForwards[FWD_ID_CREATE_CAR] = CreateMultiForward("kart_on_car_create", ET_CONTINUE, FP_CELL, FP_CELL)
 	g_fwForwards[FWD_ID_SET_GAME_STATE] = CreateMultiForward("kart_on_game_state_set", ET_CONTINUE, FP_CELL)
 	g_fwForwards[FWD_ID_PLAYER_GAME_STATE_SET] = CreateMultiForward("kart_on_player_game_state_set", ET_CONTINUE, FP_CELL, FP_CELL)
+	g_fwForwards[FWD_ID_PLAYER_LAP_PASS] = CreateMultiForward("kart_on_player_lap_pass", ET_CONTINUE, FP_CELL, FP_CELL, FP_CELL)
 }
 
 public plugin_init()
@@ -786,7 +788,7 @@ public task_starting(iParams[], iTaskId)
 			{
 				g_iPlayerPrevCPId[iPlayer] = -1
 				g_iPlayerNextCP[iPlayer] = g_iFinishCP
-				g_iPlayerCurrLoop[iPlayer] = -1
+				g_iPlayerCurrLap[iPlayer] = -1
 				g_iPlayerPassedCP[iPlayer] = 0
 				rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=0.65, .pitch=80)
 
@@ -2805,7 +2807,7 @@ find_ufo_mark()
 		if (iMaxPassedCP >= g_iPlayerPassedCP[iPlayer])
 			continue
 
-		iPos = g_iPlayerCurrLoop[iPlayer]
+		iPos = g_iPlayerCurrLap[iPlayer]
 		if (iPos >= g_pCvarLapsNum)
 			continue
 
@@ -2905,10 +2907,10 @@ touch_checkpoint(iEnt, iToucher)
 
 	if (iEnt == g_iFinishCP)
 	{
-		new iCurrLoop = g_iPlayerCurrLoop[iPlayer] + 1
-		g_iPlayerCurrLoop[iPlayer] = iCurrLoop
+		new iCurrLap = g_iPlayerCurrLap[iPlayer] + 1
+		g_iPlayerCurrLap[iPlayer] = iCurrLap
 
-		if (iCurrLoop >= g_pCvarLapsNum)
+		if (iCurrLap >= g_pCvarLapsNum)
 		{
 			iNextCP = -1
 
@@ -2961,17 +2963,19 @@ touch_checkpoint(iEnt, iToucher)
 		}
 		else
 		{
-			set_ui_lap(iPlayer, iCurrLoop + 1)
-			if (iCurrLoop == g_pCvarLapsNum - 1)
+			set_ui_lap(iPlayer, iCurrLap + 1)
+			if (iCurrLap == g_pCvarLapsNum - 1)
 			{
 				client_cmd(iPlayer, "spk ^"%s^"", SOUND_FINAL_LAP)
 				client_print(iPlayer, print_center, "%L", iPlayer, "KART_FINAL_LAP")
 			}
 			else
 			{
-				client_print(iPlayer, print_center, "%L", iPlayer, "KART_LAP", iCurrLoop + 1)
+				client_print(iPlayer, print_center, "%L", iPlayer, "KART_LAP", iCurrLap + 1)
 			}
 		}
+
+		ExecuteForward(g_fwForwards[FWD_ID_PLAYER_LAP_PASS], g_iDummy, iPlayer, iCurrLap, iCurrLap >= g_pCvarLapsNum)
 	}
 
 	g_iPlayerPrevCPId[iPlayer] = iCPId

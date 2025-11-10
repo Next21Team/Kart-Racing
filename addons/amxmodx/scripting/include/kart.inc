@@ -32,6 +32,16 @@ forward kart_on_game_state_set(GameState:gameState);
 forward kart_on_player_game_state_set(iPlayer, PlayerGameState:playerGameState);
 
 /**
+ * Called after passing a race lap
+ *
+ * @param iPlayer           - Client index
+ * @param iCurrLap          - Current lap
+ * @param bIsFinished       - True if the player finished
+ * @noreturn
+ */
+forward kart_on_player_lap_pass(iPlayer, iCurrLap, bool:bIsFinished);
+
+/**
  * Get a car character (model)
  *
  * @param iCarEnt           - Car entity index
