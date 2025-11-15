@@ -99,7 +99,7 @@ new const SKYNAME[] = "drcrash2"
 #define SELECT_CHAR_COLOR_STEP		5
 #define SELECT_CHAR_COLOR_BIG_STEP	15
 
-#define CAR_SIZE				Float:{ -16.0, -16.0, 0.0 }, Float:{ 16.0, 16.0, 32.0 }
+#define CAR_SIZES				Float:{ -16.0, -16.0, 0.0 }, Float:{ 16.0, 16.0, 32.0 }
 
 #define MAX_FORCE				800.0
 #define ACCELERATION			1800.0
@@ -217,13 +217,15 @@ new const CLASSNAME_UFOSPAWN[] =	"kr_ufospawn"
 #define var_cpnum				var_iuser3
 #define var_ui					var_iuser2
 
-#define vat_missile_mode		var_iuser2
+#define var_missile_mode		var_iuser2
 
 #define var_lifetime			var_fuser2
 #define var_targetcar			var_iuser3
 
 #define var_ufomark				var_iuser2
 #define var_ufospawn			var_iuser2
+
+#define EF_OWNER_VISIBILITY     4096 // visibility for owner
 
 new const SZ_INFO_TARGET[] = 	"info_target"
 
@@ -243,7 +245,8 @@ enum _:DataKartItem
 {
 	KITEM_AMMO,
 	KITEM_POS_MIN,
-	KITEM_POS_MAX
+	KITEM_POS_MAX,
+	bool:KITEM_CAN_REPLACE
 }
 
 enum _:DataCPEnts
@@ -799,7 +802,7 @@ public task_starting(iParams[], iTaskId)
 				rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=0.65, .pitch=80)
 
 				if (g_iUIEnt[iPlayer])
-					set_entvar(g_iUIEnt[iPlayer], var_effects, (1 << 12))
+					set_entvar(g_iUIEnt[iPlayer], var_effects, EF_OWNER_VISIBILITY)
 			}
 		}
 
@@ -1801,7 +1804,7 @@ public fwd_SnowballThink(iSnowballEnt)
 
 public fwd_BlowfishThink(iBlowfishEnt)
 {
-	if (get_entvar(iBlowfishEnt, vat_missile_mode) == 1)
+	if (get_entvar(iBlowfishEnt, var_missile_mode) == 1)
 	{
 		set_entvar(iBlowfishEnt, var_flags, FL_KILLME)
 		return
@@ -1812,7 +1815,7 @@ public fwd_BlowfishThink(iBlowfishEnt)
 
 	if (xs_vec_len_2d(vVelocity) < 1.0)
 	{
-		set_entvar(iBlowfishEnt, vat_missile_mode, 1)
+		set_entvar(iBlowfishEnt, var_missile_mode, 1)
 		set_entvar(iBlowfishEnt, var_nextthink, get_gametime() + BLOWFISH_LIFE)
 	}
 	else
@@ -1922,7 +1925,7 @@ create_car(iOwner)
 	set_entvar(iCarEnt, var_colormap, iColor)
 
 	// TODO: use hitbox
-	engfunc(EngFunc_SetSize, iCarEnt, CAR_SIZE)
+	engfunc(EngFunc_SetSize, iCarEnt, CAR_SIZES)
 	//set_entvar(iEnt, var_takedamage, DAMAGE_NO)
 	set_entvar(iCarEnt, var_health, 0.0)
 
@@ -1966,7 +1969,7 @@ set_car_preparing(iCarEnt)
 	set_entvar(iCarEnt, var_velocity, NULL_VECTOR)
 	set_entvar(iCarEnt, var_avelocity, Float:{0.0, SELECT_CHAR_ASPEED, 0.0})
 	fm_set_rendering(iCarEnt, kRenderFxNone, 255, 255, 255, kRenderNormal, 255)
-	set_entvar(iCarEnt, var_effects, get_entvar(iCarEnt, var_effects) | (1 << 12))
+	set_entvar(iCarEnt, var_effects, get_entvar(iCarEnt, var_effects) | EF_OWNER_VISIBILITY)
 	set_entvar(iCarEnt, var_nextthink, -1.0)
 }
 
@@ -1981,7 +1984,7 @@ set_car_ready(iCarEnt)
 	set_entvar(iCarEnt, var_velocity, NULL_VECTOR)
 	set_entvar(iCarEnt, var_avelocity, NULL_VECTOR)
 	fm_set_rendering(iCarEnt, kRenderFxNone, 255, 255, 255, kRenderNormal, 255)
-	set_entvar(iCarEnt, var_effects, get_entvar(iCarEnt, var_effects) & ~(1 << 12))
+	set_entvar(iCarEnt, var_effects, get_entvar(iCarEnt, var_effects) & ~EF_OWNER_VISIBILITY)
 	set_entvar(iCarEnt, var_nextthink, get_gametime())
 	rh_emit_sound2(iCarEnt, get_entvar(iCarEnt, var_owner), CHAN_VOICE, SOUND_ENGINE, .flags=SND_STOP, .pitch=80)
 }
@@ -2488,7 +2491,7 @@ use_blowfish(iPlayer, iCarEnt)
 	set_entvar(iBlowfishEnt, var_sequence, 0)
 	set_entvar(iBlowfishEnt, var_framerate, 1.0)
 
-	set_entvar(iBlowfishEnt, vat_missile_mode, 0)
+	set_entvar(iBlowfishEnt, var_missile_mode, 0)
 
 	set_entvar(iBlowfishEnt, var_nextthink, fGameTime)
 
@@ -3022,8 +3025,17 @@ public fwd_ItemboxTouch(iItemboxEnt, iToucher)
 		return HC_CONTINUE
 
 	new iPlayer = get_entvar(iToucher, var_owner)
-	if (!iPlayer || g_kitPlayerItem[iPlayer] > KIT_NULL)
+	if (!iPlayer)
 		return HC_CONTINUE
+
+	new KartItemType:iCurrKartItem = g_kitPlayerItem[iPlayer]
+	if (iCurrKartItem > KIT_NULL)
+	{
+		if (g_kitemProps[_:iCurrKartItem][KITEM_CAN_REPLACE])
+			reset_player_item(iPlayer)
+		else
+			return HC_CONTINUE
+	}
 
 	set_entvar(iItemboxEnt, var_solid, SOLID_NOT)
 	set_entvar(iItemboxEnt, var_effects, EF_NODRAW)
