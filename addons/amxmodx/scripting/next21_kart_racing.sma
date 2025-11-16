@@ -21,16 +21,18 @@ new const MODEL_KART_PACKS[][] = {
 
 new const MODEL_CAMERA[] = "models/rpgrocket.mdl"
 new const MODEL_ITEMBOX[] = "models/next21_kart/itembox_a01.mdl"
-new const MODEL_UI[] = "models/next21_kart/ui_a11.mdl"
+new const MODEL_UI[] = "models/next21_kart/ui_a12.mdl"
 new const MODEL_SNOWBALL[] = "models/next21_kart/snowball_a01.mdl"
 new const MODEL_BLOWFISH[]	= "models/next21_kart/blowfish_a02.mdl"
 new const MODEL_GLOVE[] = "models/next21_kart/glove_a01.mdl"
 new const MODEL_TORNADO[] = "models/next21_kart/tornado_a01.mdl"
 new const MODEL_UFO[] = "models/next21_kart/ufo_a01.mdl"
 
+new const MODEL_TARGET[] = "sprites/next21_kart/target.spr"
 new const MODEL_SNOWBALL_GIB[] = "sprites/next21_kart/snowball_gib_a01.spr"
 new const MODEL_DIZZY_SPRITE[] = "sprites/next21_kart/dizzy_b02.spr"
 new const MODEL_TORNADO_WARN[] = "sprites/next21_kart/tornado_warn.spr"
+new const MODEL_PORTAL[] = "models/next21_kart/portal_a01.mdl"
 
 new const SOUND_STARTING[] = "next21_kart/com_321_go.wav"
 new const SOUND_FINAL_LAP[] = "next21_kart/com_final_lap.wav"
@@ -74,8 +76,11 @@ new const SOUND_UFO_LAUNCH[] = "next21_kart/ufo_launch_a01.wav"
 
 new const SOUND_ALERT[] = "next21_enjoy/alert.wav"
 
+new const SOUND_PORTAL_TELEPORT[] = "next21_efk/portal_blink.wav"
+
 new const SOUND_SYS_CHANGE[] = "next21_kart/system_change.wav"
 new const SOUND_SYS_SELECT[] = "next21_kart/system_select.wav"
+new const SOUND_SYS_PREVENT[] = "next21_kart/system_prevent.wav"
 
 new const SKYNAME[] = "drcrash2"
 
@@ -129,6 +134,8 @@ new const SKYNAME[] = "drcrash2"
 #define CAMERA_DAMPING 			0.025
 #define CAMERA_ANGULAR_HEIGHT	40.0
 
+#define UPDATE_AIM_TARGET_DELAY 0.5
+
 #define SPECTATOR_MAXSPEED		800.0
 
 #define ITEMBOX_RESPAWN_TIME	3.0
@@ -180,6 +187,16 @@ new const SKYNAME[] = "drcrash2"
 #define UFO_UNCONTOL_TIME		0.6
 #define UFO_DEFAULT_NUM			3
 
+#define PORTAL_AMMO				1
+#define PORTAL_POS_MIN			3
+#define PORTAL_POS_MAX			0
+#define PORTAL_SIZES			CAR_SIZES
+#define PORTAL_ENTER_OFFSET		256.0
+#define PORTAL_EXIT_OFFSET		96.0
+#define PORTAL_CHECK_ATTEMPTS	8
+#define PORTAL_MIN_DISTANCE		PORTAL_ENTER_OFFSET
+#define PORTAL_LIFE				8.0
+
 #define GRASS_MAX_FORCE			400.0
 #define GRASS_TIME				0.1
 
@@ -206,6 +223,7 @@ new const CLASSNAME_BLOWFISH[] =	"kr_blowfish"
 new const CLASSNAME_TORNADO[] =		"kr_tornado"
 new const CLASSNAME_UFO[] =			"kr_ufo"
 new const CLASSNAME_UFOSPAWN[] =	"kr_ufospawn"
+new const CLASSNAME_PORTAL[] =		"kr_portal"
 
 #define TASK_STARTING			1000
 #define TASK_ENDING				1010
@@ -225,6 +243,11 @@ new const CLASSNAME_UFOSPAWN[] =	"kr_ufospawn"
 #define var_ufomark				var_iuser2
 #define var_ufospawn			var_iuser2
 
+#define var_portal_pair			var_iuser1
+#define var_portal_prevcpid		var_iuser2
+#define var_portal_nextcpent	var_iuser3
+#define var_portal_passedcp		var_iuser4
+
 #define EF_OWNER_VISIBILITY     4096 // visibility for owner
 
 new const SZ_INFO_TARGET[] = 	"info_target"
@@ -238,6 +261,7 @@ enum KartItemType
 	KIT_GLOVE,
 	KIT_TORNADO,
 	KIT_UFO,
+	KIT_PORTAL,
 	KIT_END
 }
 
@@ -246,6 +270,7 @@ enum _:DataKartItem
 	KITEM_AMMO,
 	KITEM_POS_MIN,
 	KITEM_POS_MAX,
+	bool:KITEM_USE_AIM,
 	bool:KITEM_CAN_REPLACE
 }
 
@@ -283,6 +308,7 @@ new PlayerGameState:g_pgsPlayerGameState[MAX_PLAYERS + 1]
 new g_iCarsEnt[MAX_PLAYERS + 1]
 new g_iCamerasEnt[MAX_PLAYERS + 1]
 new g_iUIEnt[MAX_PLAYERS + 1]
+new g_iTargetSpriteEnt[MAX_PLAYERS + 1]
 new g_fCarGloveEnt[MAX_PLAYERS + 1]
 new g_fCarDizzyEnt[MAX_PLAYERS + 1]
 new g_fCarTornadoWarnEnt[MAX_PLAYERS + 1]
@@ -377,9 +403,11 @@ public plugin_precache()
 
 	precache_model(MODEL_GLOVE)
 
+	precache_model(MODEL_TARGET)
 	precache_model(MODEL_TORNADO)
 	precache_model(MODEL_DIZZY_SPRITE)
 	precache_model(MODEL_TORNADO_WARN)
+	precache_model(MODEL_PORTAL)
 
 	precache_model(MODEL_UFO)
 
@@ -416,8 +444,11 @@ public plugin_precache()
 
 	precache_sound(SOUND_ALERT)
 
+	precache_sound(SOUND_PORTAL_TELEPORT)
+
 	precache_sound(SOUND_SYS_CHANGE)
 	precache_sound(SOUND_SYS_SELECT)
+	precache_sound(SOUND_SYS_PREVENT)
 
 	precache_generic(fmt("gfx/env/%sbk.tga", SKYNAME))
 	precache_generic(fmt("gfx/env/%sdn.tga", SKYNAME))
@@ -694,6 +725,10 @@ public start_game()
 	new iUFOSpawnEnt
 	while ((iUFOSpawnEnt = rg_find_ent_by_class(iUFOSpawnEnt, CLASSNAME_UFOSPAWN)))
 		set_entvar(iUFOSpawnEnt, var_flags, FL_KILLME)
+
+	new iPortalEnt
+	while ((iPortalEnt = rg_find_ent_by_class(iPortalEnt, CLASSNAME_PORTAL)))
+		set_entvar(iPortalEnt, var_flags, FL_KILLME)
 }
 
 set_game_state(GameState:gameState)
@@ -1600,6 +1635,13 @@ public fwd_CarThink(iCarEnt)
 	if (g_fCarDizzyEnt[iPlayer] && g_fCarDizzyTime[iPlayer] < fGameTime)
 		remove_dizzy(iPlayer)
 
+	static Float:fNextUpdateAimTargetTime[MAX_PLAYERS + 1]
+	if (fNextUpdateAimTargetTime[iPlayer] <= fGameTime)
+	{
+		update_aim_target(iCarEnt, iPlayer)
+		fNextUpdateAimTargetTime[iPlayer] = fGameTime + UPDATE_AIM_TARGET_DELAY
+	}
+
 	iOldButtons[iPlayer] = iButtons
 }
 
@@ -1703,6 +1745,81 @@ camera_think(iCameraEnt, iCarEnt, iPlayer)
 		set_entvar(iUIEnt, var_origin, vResOrigin)
 		set_entvar(iUIEnt, var_angles, vResAngles)
 	}
+}
+
+update_aim_target(iCarEnt, iPlayer)
+{
+	static Float:vTargetOrigin[3], Float:vCarOrigin[3]
+	static Float:vCameraDir[3], Float:vTargetDir[3]
+	static Float:vCameraOrigin[3], Float:vCameraAngles[3]
+
+	new iTargetSpriteEnt = g_iTargetSpriteEnt[iPlayer]
+	if (!iTargetSpriteEnt)
+		return 0
+
+	new iCameraEnt = g_iCamerasEnt[iPlayer]
+	if (!iCameraEnt)
+		return 0
+
+	get_entvar(iCameraEnt, var_origin, vCameraOrigin)
+	get_entvar(iCarEnt, var_origin, vCarOrigin)
+	get_entvar(iCameraEnt, var_angles, vCameraAngles)
+	angle_vector(vCameraAngles, ANGLEVECTOR_FORWARD, vCameraDir)
+	vCameraDir[2] = 0.0
+	xs_vec_normalize(vCameraDir, vCameraDir)
+
+	new iPlayerPassedCP = g_iPlayerPassedCP[iPlayer]
+	new iPlayerCurrPos = g_iPlayerCurrPos[iPlayer]
+
+	new iAimTargetCarEnt, Float:fDot, Float:fMaxDot
+	for (new iTargetPlayer = 1, iTargetCarEnt; iTargetPlayer <= MAX_PLAYERS; iTargetPlayer++)
+	{
+		if (iTargetPlayer == iPlayer)
+			continue
+
+		if (iPlayerCurrPos < g_iPlayerCurrPos[iTargetPlayer])
+			continue
+
+		if (iPlayerPassedCP > g_iPlayerPassedCP[iTargetPlayer])
+			continue
+
+		iTargetCarEnt = g_iCarsEnt[iTargetPlayer]
+		if (!iTargetCarEnt)
+			continue
+
+		if (get_entvar(iTargetCarEnt, var_solid) == SOLID_NOT)
+			continue
+
+		get_entvar(iTargetCarEnt, var_origin, vTargetOrigin)
+		xs_vec_sub(vTargetOrigin, vCarOrigin, vTargetDir)
+		vTargetDir[2] = 0.0
+		xs_vec_normalize(vTargetDir, vTargetDir)
+
+		fDot = xs_vec_dot(vCameraDir, vTargetDir)
+		if (fDot <= 0.0)
+			continue
+
+		if (is_wall_between(vCameraOrigin, vTargetOrigin, iCameraEnt))
+			continue
+
+		if (fDot > fMaxDot)
+		{
+			fMaxDot = fDot
+			iAimTargetCarEnt = iTargetCarEnt
+		}
+	}
+
+	if (iAimTargetCarEnt)
+	{
+		set_entvar(iTargetSpriteEnt, var_effects, EF_OWNER_VISIBILITY)
+		set_entvar(iTargetSpriteEnt, var_aiment, iAimTargetCarEnt)
+	}
+	else
+	{
+		set_entvar(iTargetSpriteEnt, var_effects, EF_NODRAW)
+	}
+
+	return iAimTargetCarEnt
 }
 
 move_player_spectator(iPlayer)
@@ -1908,6 +2025,58 @@ public fwd_UFOTouch(iUFOEnt, iToucher)
 
 	new iUFOSpawnEnt = get_entvar(iUFOEnt, var_ufospawn)
 	set_entvar(iUFOSpawnEnt, var_nextthink, get_gametime())
+
+	return HC_CONTINUE
+}
+
+public fwd_EnterPortalThink(iEnterPortalEnt)
+{
+	new iExitPortalEnt = get_entvar(iEnterPortalEnt, var_portal_pair)
+	set_entvar(iEnterPortalEnt, var_flags, FL_KILLME)
+	set_entvar(iExitPortalEnt, var_flags, FL_KILLME)
+}
+
+public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
+{
+	if (!iToucher)
+		return HC_CONTINUE
+
+	new iToucherImpulse = get_entvar(iToucher, var_impulse)
+
+	if (iToucherImpulse == IMPULSE_CAR || iToucherImpulse == IMPULSE_SNOWBALL)
+	{
+		new iExitPortalEnt = get_entvar(iEnterPortalEnt, var_portal_pair)
+
+		new Float:vOrigin[3], Float:vAngles[3]
+		get_entvar(iExitPortalEnt, var_origin, vOrigin)
+		get_entvar(iExitPortalEnt, var_angles, vAngles)
+
+		new Float:vVelocity[3], Float:fSpeed
+		get_entvar(iToucher, var_velocity, vVelocity)
+		fSpeed = xs_vec_len(vVelocity)
+		angle_vector(vAngles, ANGLEVECTOR_FORWARD, vVelocity)
+		xs_vec_mul_scalar(vVelocity, fSpeed, vVelocity)
+
+		engfunc(EngFunc_SetOrigin, iToucher, vOrigin)
+		set_entvar(iToucher, var_origin, vOrigin)
+		set_entvar(iToucher, var_angles, vAngles)
+		set_entvar(iToucher, var_velocity, vVelocity)
+
+		if (iToucherImpulse == IMPULSE_CAR)
+		{
+			new iPlayer = get_entvar(iToucher, var_owner)
+			g_iPlayerPrevCPId[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_prevcpid)
+			g_iPlayerNextCP[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_nextcpent)
+			g_iPlayerPassedCP[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_passedcp)
+			update_pos_list()
+
+			client_cmd(iPlayer, "spk ^"%s^"", SOUND_PORTAL_TELEPORT)
+		}
+		else
+		{
+			emit_sound(iToucher, CHAN_AUTO, SOUND_PORTAL_TELEPORT, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
+		}
+	}
 
 	return HC_CONTINUE
 }
@@ -2139,6 +2308,25 @@ create_ui(iOwner, iCameraEnt)
 	return iUIEnt
 }
 
+create_target_sprite(iOwner)
+{
+	new iTargetSpriteEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	if (is_nullent(iTargetSpriteEnt))
+		return 0
+
+	engfunc(EngFunc_SetModel, iTargetSpriteEnt, MODEL_TARGET)
+
+	set_entvar(iTargetSpriteEnt, var_solid, SOLID_NOT)
+	set_entvar(iTargetSpriteEnt, var_movetype, MOVETYPE_FOLLOW)
+	set_entvar(iTargetSpriteEnt, var_scale, 0.2)
+	set_entvar(iTargetSpriteEnt, var_owner, iOwner)
+	set_entvar(iTargetSpriteEnt, var_effects, EF_NODRAW)
+
+	fm_set_rendering(iTargetSpriteEnt, kRenderFxNone, 255, 255, 255, kRenderTransAlpha, 200)
+
+	return iTargetSpriteEnt
+}
+
 public update_pos_list()
 {
 	new eCPState[DataCPState], iListSize
@@ -2301,6 +2489,12 @@ set_items_props()
 	g_kitemProps[_:KIT_UFO][KITEM_AMMO] = UFO_AMMO
 	g_kitemProps[_:KIT_UFO][KITEM_POS_MIN] = UFO_POS_MIN
 	g_kitemProps[_:KIT_UFO][KITEM_POS_MAX] = UFO_POS_MAX
+
+	g_kitemProps[_:KIT_PORTAL][KITEM_AMMO] = PORTAL_AMMO
+	g_kitemProps[_:KIT_PORTAL][KITEM_POS_MIN] = PORTAL_POS_MIN
+	g_kitemProps[_:KIT_PORTAL][KITEM_POS_MAX] = PORTAL_POS_MAX
+	g_kitemProps[_:KIT_PORTAL][KITEM_USE_AIM] = true
+	g_kitemProps[_:KIT_PORTAL][KITEM_CAN_REPLACE] = true
 }
 
 set_player_item(iPlayer, KartItemType:iKartItem, iAmmo=0)
@@ -2318,6 +2512,24 @@ set_player_item(iPlayer, KartItemType:iKartItem, iAmmo=0)
 		set_entvar(iUIEnt, var_sequence, UI_SEQ_GIVE_ITEM)
 		set_entvar(iUIEnt, var_frame, 0)
 	}
+
+	new iTargetSpriteEnt = g_iTargetSpriteEnt[iPlayer]
+	if (g_kitemProps[_:iKartItem][KITEM_USE_AIM])
+	{
+		if (!iTargetSpriteEnt)
+		{
+			iTargetSpriteEnt = create_target_sprite(iPlayer)
+			g_iTargetSpriteEnt[iPlayer] = iTargetSpriteEnt
+		}
+	}
+	else
+	{
+		if (iTargetSpriteEnt)
+		{
+			set_entvar(iTargetSpriteEnt, var_flags, FL_KILLME)
+			g_iTargetSpriteEnt[iPlayer] = 0
+		}
+	}
 }
 
 reset_player_item(iPlayer)
@@ -2331,6 +2543,13 @@ reset_player_item(iPlayer)
 	{
 		set_entvar(iUIEnt, var_sequence, 0)
 		set_entvar(iUIEnt, var_frame, 0)
+	}
+
+	new iTargetSpriteEnt = g_iTargetSpriteEnt[iPlayer]
+	if (iTargetSpriteEnt)
+	{
+		set_entvar(iTargetSpriteEnt, var_flags, FL_KILLME)
+		g_iTargetSpriteEnt[iPlayer] = 0
 	}
 }
 
@@ -2351,6 +2570,7 @@ use_player_item(iPlayer, iCarEnt)
 			use_ufo(iPlayer, iCarEnt)
 			iRetRes = 1
 		}
+		case KIT_PORTAL: iRetRes = use_portal(iPlayer, iCarEnt)
 		default: return
 	}
 
@@ -2365,6 +2585,10 @@ use_player_item(iPlayer, iCarEnt)
 		}
 		else
 			reset_player_item(iPlayer)
+	}
+	else
+	{
+		client_cmd(iPlayer, "spk ^"%s^"", SOUND_SYS_PREVENT)
 	}
 }
 
@@ -2627,6 +2851,185 @@ use_tornado(iPlayer, iCarEnt)
 	fwd_TornadoThink(iTornadoEnt)
 
 	return iTornadoEnt
+}
+
+use_portal(iPlayer, iCarEnt)
+{
+	new Float:fGameTime = get_gametime()
+
+	if (g_fCarUnControlTime[iPlayer] >= fGameTime)
+		return 0
+
+	new iTargetCarEnt = update_aim_target(iCarEnt, iPlayer)
+	if (!iTargetCarEnt)
+		return 0
+
+	new iTargetPlayer = get_entvar(iTargetCarEnt, var_owner)
+	if (g_fCarUnControlTime[iTargetPlayer] >= fGameTime)
+		return 0
+
+	new Float:vCarOrigin[3], Float:vCarAngles[3], Float:vCarDir[3]
+	get_entvar(iCarEnt, var_origin, vCarOrigin)
+	get_entvar(iCarEnt, var_angles, vCarAngles)
+	angle_vector(vCarAngles, ANGLEVECTOR_FORWARD, vCarDir)
+	if (!get_entvar(iCarEnt, var_flags)) // Flying
+	{
+		vCarDir[2] = 0.0
+		xs_vec_normalize(vCarDir, vCarDir)
+	}
+	else
+	{
+		vCarDir[2] = -vCarDir[2]
+	}
+
+	new Float:vTargetOrigin[3], Float:vTargetAngles[3], Float:vTargetDir[3]
+	get_entvar(iTargetCarEnt, var_origin, vTargetOrigin)
+	get_entvar(iTargetCarEnt, var_angles, vTargetAngles)
+	angle_vector(vTargetAngles, ANGLEVECTOR_FORWARD, vTargetDir)
+	vTargetDir[2] = 0.0
+	xs_vec_normalize(vTargetDir, vTargetDir)
+
+	new Float:vEnterPortalOrigin[3], Float:vExitPortalOrigin[3]
+	find_enter_portal_free_space(iCarEnt, vCarOrigin, PORTAL_ENTER_OFFSET, vCarDir, vEnterPortalOrigin)
+	find_exit_portal_free_space(iTargetCarEnt, vTargetOrigin, PORTAL_EXIT_OFFSET, vTargetDir, vExitPortalOrigin)
+
+	if (xs_vec_distance(vEnterPortalOrigin, vExitPortalOrigin) < PORTAL_MIN_DISTANCE)
+		return 0
+
+	new iEnterPortalEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	if (is_nullent(iEnterPortalEnt))
+		return 0
+
+	new iExitPortalEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	if (is_nullent(iExitPortalEnt))
+	{
+		engfunc(EngFunc_RemoveEntity, iEnterPortalEnt)
+		return 0
+	}
+
+	set_portal_common_properties(iEnterPortalEnt)
+	set_portal_common_properties(iExitPortalEnt)
+
+	engfunc(EngFunc_SetOrigin, iEnterPortalEnt, vEnterPortalOrigin)
+	engfunc(EngFunc_SetOrigin, iExitPortalEnt, vExitPortalOrigin)
+
+	set_entvar(iEnterPortalEnt, var_origin, vEnterPortalOrigin)
+	set_entvar(iEnterPortalEnt, var_angles, vCarAngles)
+	set_entvar(iEnterPortalEnt, var_skin, 0)
+
+	set_entvar(iExitPortalEnt, var_origin, vExitPortalOrigin)
+	set_entvar(iExitPortalEnt, var_angles, vTargetAngles)
+	set_entvar(iExitPortalEnt, var_skin, 1)
+
+	set_entvar(iEnterPortalEnt, var_portal_pair, iExitPortalEnt)
+	set_entvar(iEnterPortalEnt, var_portal_prevcpid, g_iPlayerPrevCPId[iTargetPlayer])
+	set_entvar(iEnterPortalEnt, var_portal_nextcpent, g_iPlayerNextCP[iTargetPlayer])
+	set_entvar(iEnterPortalEnt, var_portal_passedcp, g_iPlayerPassedCP[iTargetPlayer])
+
+	set_entvar(iExitPortalEnt, var_portal_pair, iEnterPortalEnt)
+
+	set_entvar(iEnterPortalEnt, var_nextthink, fGameTime + PORTAL_LIFE)
+
+	SetThink(iEnterPortalEnt, "fwd_EnterPortalThink")
+	SetTouch(iEnterPortalEnt, "fwd_EnterPortalTouch")
+
+	return 1
+}
+
+find_enter_portal_free_space(iCarEnt, Float:vStartOrigin[3], Float:fDistance, Float:vDir[3], Float:vEndOrigin[3])
+{
+	new Float:fResidualDistance = fDistance
+	new Float:vStartVec[3], Float:vStartDir[3], Float:vEndVec[3]
+	new Float:fFraction, Float:vPlaneNormal[3], Float:vHullOrigin[3]
+
+	xs_vec_copy(vStartOrigin, vStartVec)
+	xs_vec_copy(vDir, vStartDir)
+
+	while (fResidualDistance > 0.0)
+	{
+		vStartVec[2] += 32.0
+		xs_vec_mul_scalar(vStartDir, fResidualDistance, vEndVec)
+		xs_vec_add(vStartVec, vEndVec, vEndVec)
+
+		engfunc(EngFunc_TraceLine, vStartVec, vEndVec, IGNORE_MONSTERS, iCarEnt, 0)
+
+		get_tr2(0, TR_flFraction, fFraction)
+		if (fFraction == 1.0)
+			break
+
+		get_tr2(0, TR_vecPlaneNormal, vPlaneNormal)
+		if (vPlaneNormal[2] < 0.35) // There is a wall ahead
+		{
+			get_tr2(0, TR_vecEndPos, vEndVec)
+			break
+		}
+
+		get_tr2(0, TR_vecEndPos, vEndVec)
+		xs_vec_copy(vEndVec, vStartVec)
+		fResidualDistance -= fResidualDistance * fFraction
+		vStartDir[2] = 1.0 - vPlaneNormal[2]
+	}
+
+	vEndVec[2] -= 32.0
+
+	xs_vec_copy(vEndVec, vHullOrigin)
+	vHullOrigin[2] += 18.0
+
+	if (!is_hull_vacant(vHullOrigin, HULL_HEAD, iCarEnt))
+	{
+		fResidualDistance = floatmin(xs_vec_distance(vStartOrigin, vEndVec), 32.0)
+		xs_vec_sub(vEndVec, vStartOrigin, vStartDir)
+		xs_vec_normalize(vStartDir, vStartDir)
+
+		xs_vec_copy(vEndVec, vStartVec)
+		xs_vec_mul_scalar(vStartDir, fResidualDistance, vEndVec)
+		xs_vec_add(vStartVec, vEndVec, vEndVec)
+	}
+
+	xs_vec_copy(vEndVec, vEndOrigin)
+}
+
+find_exit_portal_free_space(iCarEnt, Float:vStartOrigin[3], Float:fDistance, Float:vDir[3], Float:vEndOrigin[3])
+{
+	xs_vec_mul_scalar(vDir, -fDistance, vEndOrigin)
+	xs_vec_add(vStartOrigin, vEndOrigin, vEndOrigin)
+	vEndOrigin[2] += 1.0 // Lift the portal a little
+
+	new Float:vHullOrigin[3]
+	xs_vec_copy(vEndOrigin, vHullOrigin)
+	vHullOrigin[2] += 18.0
+
+	new iCheckAttemptsNum
+	while (iCheckAttemptsNum < PORTAL_CHECK_ATTEMPTS && !is_hull_vacant(vHullOrigin, HULL_HEAD, iCarEnt))
+	{
+		vHullOrigin[2] += 8.0
+		iCheckAttemptsNum++
+	}
+
+	if (iCheckAttemptsNum == PORTAL_CHECK_ATTEMPTS)
+	{
+		xs_vec_copy(vStartOrigin, vEndOrigin)
+		return
+	}
+
+	vEndOrigin[2] = vHullOrigin[2] - 18.0
+}
+
+set_portal_common_properties(iPortalEnt)
+{
+	engfunc(EngFunc_SetModel, iPortalEnt, MODEL_PORTAL)
+	engfunc(EngFunc_SetSize, iPortalEnt, PORTAL_SIZES)
+
+	set_entvar(iPortalEnt, var_solid, SOLID_TRIGGER)
+	set_entvar(iPortalEnt, var_movetype, MOVETYPE_TOSS)
+	set_entvar(iPortalEnt, var_classname, CLASSNAME_PORTAL)
+
+	set_entvar(iPortalEnt, var_animtime, get_gametime())
+	set_entvar(iPortalEnt, var_sequence, 0)
+	set_entvar(iPortalEnt, var_framerate, 1.0)
+	set_entvar(iPortalEnt, var_gravity, 0.0001)
+
+	fm_set_rendering(iPortalEnt, kRenderFxNone, 255, 255, 255, kRenderTransAdd, 255)
 }
 
 set_tornado_warn(iPlayer, iCarEnt)
@@ -3405,6 +3808,20 @@ reverse_ent(iEnt, Float:vPivot[3])
 
 	set_entvar(iEnt, var_origin, vOrigin)
 	set_entvar(iEnt, var_angles, vAngles)
+}
+
+bool:is_hull_vacant(Float:vOrigin[3], iHullType, iEnt)
+{
+	engfunc(EngFunc_TraceHull, vOrigin, vOrigin, DONT_IGNORE_MONSTERS, iHullType, iEnt, 0)
+	return !get_tr2(0, TR_StartSolid) && !get_tr2(0, TR_AllSolid) && get_tr2(0, TR_InOpen)
+}
+
+bool:is_wall_between(Float:vStart[3], Float:vEnd[3], iEnt)
+{
+	new Float:fFraction
+	engfunc(EngFunc_TraceLine, vStart, vEnd, IGNORE_MONSTERS, iEnt, 0)
+	get_tr2(0, TR_flFraction, fFraction)
+	return fFraction != 1.0
 }
 
 public _kart_car_get_char(plugin, num_params)
