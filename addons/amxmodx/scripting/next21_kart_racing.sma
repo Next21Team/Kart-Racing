@@ -190,7 +190,7 @@ new const SKYNAME[] = "drcrash2"
 #define PORTAL_AMMO				1
 #define PORTAL_POS_MIN			3
 #define PORTAL_POS_MAX			0
-#define PORTAL_SIZES			CAR_SIZES
+#define PORTAL_SIZES			Float:{ -24.0, -24.0, 0.0 }, Float:{ 24.0, 24.0, 48.0 }
 #define PORTAL_ENTER_OFFSET		256.0
 #define PORTAL_EXIT_OFFSET		96.0
 #define PORTAL_CHECK_ATTEMPTS	8
@@ -2065,9 +2065,11 @@ public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
 		if (iToucherImpulse == IMPULSE_CAR)
 		{
 			new iPlayer = get_entvar(iToucher, var_owner)
+			new iPassedCP = get_entvar(iEnterPortalEnt, var_portal_passedcp)
 			g_iPlayerPrevCPId[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_prevcpid)
 			g_iPlayerNextCP[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_nextcpent)
-			g_iPlayerPassedCP[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_passedcp)
+			if (iPassedCP > g_iPlayerPassedCP[iPlayer])
+				g_iPlayerPassedCP[iPlayer] = iPassedCP
 			update_pos_list()
 
 			client_cmd(iPlayer, "spk ^"%s^"", SOUND_PORTAL_TELEPORT)
