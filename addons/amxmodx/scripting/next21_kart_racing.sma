@@ -2085,7 +2085,7 @@ public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
 
 create_car(iOwner)
 {
-	new iCarEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iCarEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iCarEnt))
 		return 0
 
@@ -2270,7 +2270,7 @@ bool:stop_skiding_sound(iPlayer, iCarEnt)
 
 create_camera(iOwner)
 {
-	new iCameraEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iCameraEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iCameraEnt))
 		return 0
 
@@ -2289,7 +2289,7 @@ create_camera(iOwner)
 
 create_ui(iOwner, iCameraEnt)
 {
-	new iUIEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iUIEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iUIEnt))
 		return 0
 
@@ -2312,7 +2312,7 @@ create_ui(iOwner, iCameraEnt)
 
 create_target_sprite(iOwner)
 {
-	new iTargetSpriteEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iTargetSpriteEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iTargetSpriteEnt))
 		return 0
 
@@ -2596,7 +2596,7 @@ use_player_item(iPlayer, iCarEnt)
 
 use_snowball(iPlayer, iCarEnt)
 {
-	new iSnowballEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iSnowballEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iSnowballEnt))
 		return 0
 
@@ -2681,7 +2681,7 @@ use_blowfish(iPlayer, iCarEnt)
 {
 	#pragma unused iPlayer
 
-	new iBlowfishEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iBlowfishEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iBlowfishEnt))
 		return 0
 
@@ -2731,7 +2731,7 @@ use_blowfish(iPlayer, iCarEnt)
 
 public use_glove(iPlayer, iCarEnt)
 {
-	new iGloveEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iGloveEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iGloveEnt))
 		return 0
 
@@ -2816,7 +2816,7 @@ use_tornado(iPlayer, iCarEnt)
 
 	new iTargetCarEnt = g_iCarsEnt[iTargetPlayer]
 
-	new iTornadoEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iTornadoEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iTornadoEnt))
 		return 0
 
@@ -2898,11 +2898,11 @@ use_portal(iPlayer, iCarEnt)
 	if (xs_vec_distance(vEnterPortalOrigin, vExitPortalOrigin) < PORTAL_MIN_DISTANCE)
 		return 0
 
-	new iEnterPortalEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iEnterPortalEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iEnterPortalEnt))
 		return 0
 
-	new iExitPortalEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iExitPortalEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iExitPortalEnt))
 	{
 		engfunc(EngFunc_RemoveEntity, iEnterPortalEnt)
@@ -3036,7 +3036,7 @@ set_portal_common_properties(iPortalEnt)
 
 set_tornado_warn(iPlayer, iCarEnt)
 {
-	new iTornadoWarnEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iTornadoWarnEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iTornadoWarnEnt))
 		return 0
 
@@ -3066,7 +3066,7 @@ remove_tornado_warn(iPlayer)
 
 set_dizzy(iPlayer, iCarEnt)
 {
-	new iDizzyEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iDizzyEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iDizzyEnt))
 		return 0
 
@@ -3126,7 +3126,7 @@ public use_ufo(iPlayer, iCarEnt)
 	if (iUFOsNum <= 0)
 		iUFOsNum = UFO_DEFAULT_NUM
 
-	new iUFOSpawnEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iUFOSpawnEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iUFOSpawnEnt))
 		return 0
 
@@ -3156,7 +3156,7 @@ public use_ufo(iPlayer, iCarEnt)
 	new iUFOEnt
 	for (new i, j; i < iUFOsNum; i++)
 	{
-		iUFOEnt = rg_create_entity(SZ_INFO_TARGET, true)
+		iUFOEnt = rg_create_entity(SZ_INFO_TARGET)
 		if (is_nullent(iUFOEnt))
 			continue
 
