@@ -225,6 +225,12 @@ new const CLASSNAME_UFO[] =			"kr_ufo"
 new const CLASSNAME_UFOSPAWN[] =	"kr_ufospawn"
 new const CLASSNAME_PORTAL[] =		"kr_portal"
 
+new const TNAME_CHECKPOINT[] =		"checkpoint"
+new const TNAME_BONUS[] =			"bonus"
+new const TNAME_GRASS[] =			"kart_grass"
+new const TNAME_PREPTARGET[] =		"kart_preptarget"
+new const TNAME_PREPPOS[] =			"kart_preppos"
+
 #define TASK_STARTING			1000
 #define TASK_ENDING				1010
 #define TASK_UPDATEPOS			1020
@@ -251,6 +257,7 @@ new const CLASSNAME_PORTAL[] =		"kr_portal"
 #define EF_OWNER_VISIBILITY     4096 // visibility for owner
 
 new const SZ_INFO_TARGET[] = 	"info_target"
+new const SZ_TARGETNAME[] =		"targetname"
 
 enum KartItemType
 {
@@ -302,7 +309,8 @@ new g_iKartPackModelIndices[sizeof MODEL_KART_PACKS]
 new GameState:g_gsGameState
 new bool:g_bReverseMap
 
-new Float:g_vPrepareOrigin[3]
+new Float:g_vPrepCameraOrigin[3], Float:g_vPrepCarOrigin[3], Float:g_vPrepCameraAngles[3]
+new Float:g_vSpecStartOrigin[3]
 
 new PlayerGameState:g_pgsPlayerGameState[MAX_PLAYERS + 1]
 new g_iCarsEnt[MAX_PLAYERS + 1]
@@ -483,7 +491,7 @@ public plugin_init()
 	while ((iCPEnt = rg_find_ent_by_class(iCPEnt, "trigger_multiple", true)))
 	{
 		get_entvar(iCPEnt, var_targetname, szTargetName, charsmax(szTargetName))
-		if (equal(szTargetName, "checkpoint", 10))
+		if (equal(szTargetName, TNAME_CHECKPOINT, 10))
 		{
 			iCPId = str_to_num(szTargetName[10])
 
@@ -501,8 +509,8 @@ public plugin_init()
 
 			eCPEnts[CPENT_ID] = iCPId
 			eCPEnts[CPENT_CP] = iCPEnt
-			eCPEnts[CPENT_RESET] = engfunc(EngFunc_FindEntityByString, -1, "targetname", fmt("reset%i", iCPId))
-			eCPEnts[CPENT_UFO] = engfunc(EngFunc_FindEntityByString, -1, "targetname", fmt("ufo%i", iCPId))
+			eCPEnts[CPENT_RESET] = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME, fmt("reset%i", iCPId))
+			eCPEnts[CPENT_UFO] = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME, fmt("ufo%i", iCPId))
 			ArrayPushArray(g_aCPEnts, eCPEnts)
 		}
 		else if (equal(szTargetName, "reset"))
@@ -513,15 +521,10 @@ public plugin_init()
 
 	apply_checkpoints(false)
 
-	new iSpawnEnt = engfunc(EngFunc_FindEntityByString, -1, "targetname", "car_start03")
-	if (iSpawnEnt)
-	{
-		get_entvar(iSpawnEnt, var_origin, g_vPrepareOrigin)
-		g_vPrepareOrigin[2] += 60.0
-	}
+	update_prepare_origins()
 
-	new iGrassTriggerEnt
-	while ((iGrassTriggerEnt = engfunc(EngFunc_FindEntityByString, iGrassTriggerEnt, "targetname", "kart_grass")))
+	new iGrassTriggerEnt = NULLENT
+	while ((iGrassTriggerEnt = engfunc(EngFunc_FindEntityByString, iGrassTriggerEnt, SZ_TARGETNAME, TNAME_GRASS)))
 		set_entvar(iGrassTriggerEnt, var_impulse, IMPULSE_GRASS)
 
 	create_itemboxes()
@@ -755,7 +758,7 @@ set_player_game_state(iPlayer, PlayerGameState:playerGameState)
 
 apply_checkpoints(bool:bReverse)
 {
-	g_iFinishCP = -1
+	g_iFinishCP = NULLENT
 
 	new iCheckPointsNum = ArraySize(g_aCPEnts)
 	if (!iCheckPointsNum)
@@ -785,7 +788,7 @@ apply_checkpoints(bool:bReverse)
 
 		for (new i = 1, iSpawnEnt; i <= MAX_PLAYERS; i++)
 		{
-			iSpawnEnt = engfunc(EngFunc_FindEntityByString, -1, "targetname", fmt("car_start%02d", i))
+			iSpawnEnt = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME, fmt("car_start%02d", i))
 			if (iSpawnEnt > 0)
 				reverse_ent(iSpawnEnt, vFinishOrigin)
 		}
@@ -814,6 +817,51 @@ apply_checkpoints(bool:bReverse)
 	}
 
 	g_bReverseMap = bReverse
+}
+
+update_prepare_origins()
+{
+	// Get default origins
+	new iSpawnEnt = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME, "car_start03")
+	if (iSpawnEnt)
+	{
+		get_entvar(iSpawnEnt, var_origin, g_vPrepCarOrigin)
+		g_vPrepCarOrigin[2] += 60.0
+
+		g_vPrepCameraOrigin[0] = g_vPrepCarOrigin[0] - SELECT_CHAR_CAM_DISTANCE
+		g_vPrepCameraOrigin[1] = g_vPrepCarOrigin[1]
+		g_vPrepCameraOrigin[2] = g_vPrepCarOrigin[2] + SELECT_CHAR_CAM_HEIGHT
+
+		xs_vec_copy(NULL_VECTOR, g_vPrepCameraAngles)
+		xs_vec_copy(g_vPrepCameraOrigin, g_vSpecStartOrigin)
+	}
+
+	// Get custom origins
+	new iPrepTargetEnt = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME, TNAME_PREPTARGET)
+	if (iPrepTargetEnt)
+	{
+		new iSpawnCameraEnt = NULLENT, szTarget[32]
+		while ((iSpawnCameraEnt = rg_find_ent_by_class(iSpawnCameraEnt, "trigger_camera")))
+		{
+			get_entvar(iSpawnCameraEnt, var_target, szTarget, charsmax(szTarget))
+			if (equal(szTarget, TNAME_PREPTARGET))
+			{
+				get_entvar(iPrepTargetEnt, var_origin, g_vPrepCarOrigin)
+				get_entvar(iSpawnCameraEnt, var_origin, g_vPrepCameraOrigin)
+
+				new Float:vDirection[3]
+				xs_vec_sub(g_vPrepCarOrigin, g_vPrepCameraOrigin, vDirection)
+				xs_vec_normalize(vDirection, vDirection)
+				vector_to_angle(vDirection, g_vPrepCameraAngles)
+
+				new iPrepPosEnt = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME, TNAME_PREPPOS)
+				if (iPrepPosEnt)
+					get_entvar(iPrepPosEnt, var_origin, g_vPrepCarOrigin)
+
+				break
+			}
+		}
+	}
 }
 
 public task_starting(iParams[], iTaskId)
@@ -937,7 +985,7 @@ prepare_player(iPlayer)
 	set_entvar(iPlayer, var_maxspeed, 0.000001)
 
 	new Float:vOrigin[3], Float:vAngles[3]
-	xs_vec_copy(g_vPrepareOrigin, vOrigin)
+	xs_vec_copy(g_vPrepCarOrigin, vOrigin)
 
 	new iCarEnt = create_car(iPlayer)
 	g_iCarsEnt[iPlayer] = iCarEnt
@@ -961,8 +1009,8 @@ prepare_player(iPlayer)
 	set_entvar(iCarEnt, var_origin, vOrigin)
 	set_entvar(iCarEnt, var_angles, vAngles)
 
-	vOrigin[0] -= SELECT_CHAR_CAM_DISTANCE
-	vOrigin[2] += SELECT_CHAR_CAM_HEIGHT
+	xs_vec_copy(g_vPrepCameraOrigin, vOrigin)
+	xs_vec_copy(g_vPrepCameraAngles, vAngles)
 
 	set_entvar(iCameraEnt, var_origin, vOrigin)
 	set_entvar(iCameraEnt, var_angles, vAngles)
@@ -992,7 +1040,7 @@ ready_player(iPlayer)
 		}
 	}
 
-	new iSpawnEnt = engfunc(EngFunc_FindEntityByString, -1, "targetname",
+	new iSpawnEnt = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME,
 		fmt("car_start%02d", g_iPlayerCurrSpawn[iPlayer]))
 
 	if (!iSpawnEnt)
@@ -1836,6 +1884,9 @@ reset_spectator_target(iPlayer)
 	set_entvar(iPlayer, var_maxspeed, SPECTATOR_MAXSPEED)
 	engfunc(EngFunc_SetView, iPlayer, iPlayer)
 
+	engfunc(EngFunc_SetOrigin, iPlayer, g_vSpecStartOrigin)
+	set_entvar(iPlayer, var_origin, g_vSpecStartOrigin)
+
 	g_iSpectatorTarget[iPlayer] = 0
 }
 
@@ -2085,7 +2136,7 @@ public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
 
 create_car(iOwner)
 {
-	new iCarEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iCarEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iCarEnt))
 		return 0
 
@@ -2270,7 +2321,7 @@ bool:stop_skiding_sound(iPlayer, iCarEnt)
 
 create_camera(iOwner)
 {
-	new iCameraEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iCameraEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iCameraEnt))
 		return 0
 
@@ -2289,7 +2340,7 @@ create_camera(iOwner)
 
 create_ui(iOwner, iCameraEnt)
 {
-	new iUIEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iUIEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iUIEnt))
 		return 0
 
@@ -2312,7 +2363,7 @@ create_ui(iOwner, iCameraEnt)
 
 create_target_sprite(iOwner)
 {
-	new iTargetSpriteEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iTargetSpriteEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iTargetSpriteEnt))
 		return 0
 
@@ -2443,8 +2494,8 @@ public sort_cps(Array:a, v1[], v2[])
 
 create_itemboxes()
 {
-	new iItemBox = -1
-	while ((iItemBox = engfunc(EngFunc_FindEntityByString, iItemBox, "targetname", "bonus")))
+	new iItemBox = NULLENT
+	while ((iItemBox = engfunc(EngFunc_FindEntityByString, iItemBox, SZ_TARGETNAME, TNAME_BONUS)))
 	{
 		engfunc(EngFunc_SetModel, iItemBox, MODEL_ITEMBOX)
 		engfunc(EngFunc_SetSize, iItemBox, ITEMBOX_SIZES)
@@ -2596,7 +2647,7 @@ use_player_item(iPlayer, iCarEnt)
 
 use_snowball(iPlayer, iCarEnt)
 {
-	new iSnowballEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iSnowballEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iSnowballEnt))
 		return 0
 
@@ -2681,7 +2732,7 @@ use_blowfish(iPlayer, iCarEnt)
 {
 	#pragma unused iPlayer
 
-	new iBlowfishEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iBlowfishEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iBlowfishEnt))
 		return 0
 
@@ -2731,7 +2782,7 @@ use_blowfish(iPlayer, iCarEnt)
 
 public use_glove(iPlayer, iCarEnt)
 {
-	new iGloveEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iGloveEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iGloveEnt))
 		return 0
 
@@ -2786,7 +2837,7 @@ remove_glove(iPlayer)
 
 use_tornado(iPlayer, iCarEnt)
 {
-	new iTargetPlayer = -1
+	new iTargetPlayer = NULLENT
 	new iMinPos = MAX_PLAYERS + 1
 
 	for (new i = 1, iPos; i <= MAX_PLAYERS; i++)
@@ -2816,7 +2867,7 @@ use_tornado(iPlayer, iCarEnt)
 
 	new iTargetCarEnt = g_iCarsEnt[iTargetPlayer]
 
-	new iTornadoEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iTornadoEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iTornadoEnt))
 		return 0
 
@@ -2898,11 +2949,11 @@ use_portal(iPlayer, iCarEnt)
 	if (xs_vec_distance(vEnterPortalOrigin, vExitPortalOrigin) < PORTAL_MIN_DISTANCE)
 		return 0
 
-	new iEnterPortalEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iEnterPortalEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iEnterPortalEnt))
 		return 0
 
-	new iExitPortalEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iExitPortalEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iExitPortalEnt))
 	{
 		engfunc(EngFunc_RemoveEntity, iEnterPortalEnt)
@@ -3036,7 +3087,7 @@ set_portal_common_properties(iPortalEnt)
 
 set_tornado_warn(iPlayer, iCarEnt)
 {
-	new iTornadoWarnEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iTornadoWarnEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iTornadoWarnEnt))
 		return 0
 
@@ -3066,7 +3117,7 @@ remove_tornado_warn(iPlayer)
 
 set_dizzy(iPlayer, iCarEnt)
 {
-	new iDizzyEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iDizzyEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iDizzyEnt))
 		return 0
 
@@ -3126,7 +3177,7 @@ public use_ufo(iPlayer, iCarEnt)
 	if (iUFOsNum <= 0)
 		iUFOsNum = UFO_DEFAULT_NUM
 
-	new iUFOSpawnEnt = rg_create_entity(SZ_INFO_TARGET, true)
+	new iUFOSpawnEnt = rg_create_entity(SZ_INFO_TARGET)
 	if (is_nullent(iUFOSpawnEnt))
 		return 0
 
@@ -3156,7 +3207,7 @@ public use_ufo(iPlayer, iCarEnt)
 	new iUFOEnt
 	for (new i, j; i < iUFOsNum; i++)
 	{
-		iUFOEnt = rg_create_entity(SZ_INFO_TARGET, true)
+		iUFOEnt = rg_create_entity(SZ_INFO_TARGET)
 		if (is_nullent(iUFOEnt))
 			continue
 
