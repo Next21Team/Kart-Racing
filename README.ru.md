@@ -33,11 +33,12 @@ https://www.dropbox.com/scl/fi/vhsxaphr8u1gttf07w6ig/kart_assets.zip?rlkey=7hgxl
 Гоночные трассы:
 https://www.dropbox.com/scl/fi/0bmouxi5uqwplbb7gi17c/kart_maps.zip?rlkey=hsscyz8qai8cbszb6bgy4o0kt&dl=0
 
-Руководство для создания гоночных трасс (на русском языке):
-https://docs.google.com/document/d/e/2PACX-1vTGj_rEpevZ-I7QJcQ16LvH8X7yDfPXAVsWYqJJ6dRNQr6cNomkB0K8M5dLGjuDXmkj3gOAK_Jm7C3u/pub
-
 ## Требования
 - [Reapi](https://github.com/s1lentq/reapi)
+
+## Документация
+Документация по созданию гоночных трасс:
+https://github.com/Next21Team/Kart-Racing/wiki
 
 ## Сторонние расширения
 - [Kart Racing: NCL Hit Icons](https://github.com/Next21Team/Kart-Racing-NCL-Hit-Icons)

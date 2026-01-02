@@ -491,9 +491,9 @@ public plugin_init()
 	while ((iCPEnt = rg_find_ent_by_class(iCPEnt, "trigger_multiple", true)))
 	{
 		get_entvar(iCPEnt, var_targetname, szTargetName, charsmax(szTargetName))
-		if (equal(szTargetName, TNAME_CHECKPOINT, 10))
+		if (equal(szTargetName, TNAME_CHECKPOINT, charsmax(TNAME_CHECKPOINT)))
 		{
-			iCPId = str_to_num(szTargetName[10])
+			iCPId = str_to_num(szTargetName[charsmax(TNAME_CHECKPOINT)])
 
 			set_entvar(iCPEnt, var_impulse, IMPULSE_CHECKPOINT)
 			set_entvar(iCPEnt, var_cpnum, iCPId)
