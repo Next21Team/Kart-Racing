@@ -230,6 +230,8 @@ new const TNAME_BONUS[] =			"bonus"
 new const TNAME_GRASS[] =			"kart_grass"
 new const TNAME_PREPTARGET[] =		"kart_preptarget"
 new const TNAME_PREPPOS[] =			"kart_preppos"
+new const TNAME_CHPATH_DIRECT[] =	"kart_chpath_direct"
+new const TNAME_CHPATH_REVERSE[] =	"kart_chpath_reverse"
 
 #define TASK_STARTING			1000
 #define TASK_ENDING				1010
@@ -813,6 +815,13 @@ apply_checkpoints(bool:bReverse)
 					get_entvar(iUFOMarkEnt, var_origin, vPivot)
 				reverse_ent(iUFOMarkEnt, vPivot)
 			}
+		}
+
+		new iChangeDirEnt = NULLENT
+		while ((iChangeDirEnt = engfunc(EngFunc_FindEntityByString, iChangeDirEnt,
+			SZ_TARGETNAME, bReverse ? TNAME_CHPATH_REVERSE : TNAME_CHPATH_DIRECT)))
+		{
+			ExecuteHamB(Ham_Use, iChangeDirEnt, 0, 0, USE_ON, 1.0)
 		}
 	}
 
