@@ -734,6 +734,10 @@ public start_game()
 	new iPortalEnt
 	while ((iPortalEnt = rg_find_ent_by_class(iPortalEnt, CLASSNAME_PORTAL)))
 		set_entvar(iPortalEnt, var_flags, FL_KILLME)
+
+	new iAmbientEnt
+	while ((iAmbientEnt = rg_find_ent_by_class(iAmbientEnt, "ambient_generic", true)))
+		ExecuteHamB(Ham_CS_Restart, iAmbientEnt)
 }
 
 set_game_state(GameState:gameState)
@@ -1891,7 +1895,7 @@ reset_spectator_target(iPlayer)
 {
 	engfunc(EngFunc_SetClientMaxspeed, iPlayer, SPECTATOR_MAXSPEED)
 	set_entvar(iPlayer, var_maxspeed, SPECTATOR_MAXSPEED)
-	engfunc(EngFunc_SetView, iPlayer, iPlayer)
+	set_player_view(iPlayer, iPlayer)
 
 	engfunc(EngFunc_SetOrigin, iPlayer, g_vSpecStartOrigin)
 	set_entvar(iPlayer, var_origin, g_vSpecStartOrigin)
@@ -1906,7 +1910,7 @@ set_spectator_target(iPlayer, iTarget)
 
 	new iCameraEnt = g_iCamerasEnt[iTarget]
 	if (!is_nullent(iCameraEnt))
-		engfunc(EngFunc_SetView, iPlayer, iCameraEnt)
+		set_player_view(iPlayer, iCameraEnt)
 
 	g_iSpectatorTarget[iPlayer] = iTarget
 }
@@ -2342,7 +2346,7 @@ create_camera(iOwner)
 	set_entvar(iCameraEnt, var_movetype, MOVETYPE_NOCLIP)
 	set_entvar(iCameraEnt, var_rendermode, kRenderTransTexture)
 
-	engfunc(EngFunc_SetView, iOwner, iCameraEnt)
+	set_player_view(iOwner, iCameraEnt)
 
 	return iCameraEnt
 }
@@ -3852,6 +3856,15 @@ get_player_menu(iPlayer)
 	new iOldMenu, iMenu
 	player_menu_info(iPlayer, iOldMenu, iMenu)
 	return iMenu
+}
+
+set_player_view(iPlayer, iTarget)
+{
+	if (get_viewent(iPlayer) == iTarget)
+		return
+
+	engfunc(EngFunc_SetView, iPlayer, iTarget)
+	client_cmd(iPlayer, "stopsound")
 }
 
 reverse_ent(iEnt, Float:vPivot[3])
