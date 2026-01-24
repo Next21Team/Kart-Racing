@@ -374,6 +374,7 @@ new g_pCvarReverseAvailable
 new g_pCvarStartWaitingTime
 new g_pCvarStartMinPlayers
 new g_pCvarEndingTime
+new Float:g_pCvarEngineVolume
 
 new g_msgHideWeapon
 new g_msgScoreInfo
@@ -580,6 +581,7 @@ public plugin_init()
 	bind_pcvar_num(pCvarStartWaitingTime, g_pCvarStartWaitingTime)
 	bind_pcvar_num(pCvarStartMinPlayers, g_pCvarStartMinPlayers)
 	bind_pcvar_num(register_cvar("kart_ending_time", "25"), g_pCvarEndingTime)
+	bind_pcvar_float(register_cvar("kart_engine_volume", "0.6"), g_pCvarEngineVolume)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
@@ -895,7 +897,7 @@ public task_starting(iParams[], iTaskId)
 				g_iPlayerNextCP[iPlayer] = g_iFinishCP
 				g_iPlayerCurrLap[iPlayer] = -1
 				g_iPlayerPassedCP[iPlayer] = 0
-				rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=0.65, .pitch=80)
+				rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .pitch=80)
 
 				if (g_iUIEnt[iPlayer])
 					set_entvar(g_iUIEnt[iPlayer], var_effects, EF_OWNER_VISIBILITY)
@@ -1667,7 +1669,7 @@ public fwd_CarThink(iCarEnt)
 
 	if ((eNextPitchTime[iPlayer] < fGameTime))
 	{
-		rh_emit_sound2(iCarEnt, iPlayer, CHAN_VOICE, SOUND_ENGINE, .flags=SND_CHANGE_PITCH, .pitch=iPitch)
+		rh_emit_sound2(iCarEnt, iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .flags=SND_CHANGE_PITCH, .pitch=iPitch)
 		eNextPitchTime[iPlayer] = fGameTime + 0.1
 	}
 

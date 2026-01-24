@@ -25,6 +25,7 @@ In addition to the default buttons for moving the car along the highway, the fol
 - ```kart_start_waiting_time "45"``` Waiting time (seconds) for other players before starting the game.
 - ```kart_start_min_players "2"``` Minimum number of players to start the game.
 - ```kart_ending_time "25"``` Waiting time (seconds) for other players after finishing.
+- ```kart_engine_volume "0.6"``` Engine sound volume.
 
 ## Assets
 Assets for the mod:
