@@ -197,8 +197,8 @@ new const SKYNAME[] = "drcrash2"
 #define PORTAL_MIN_DISTANCE		PORTAL_ENTER_OFFSET
 #define PORTAL_LIFE				8.0
 
-#define GRASS_MAX_FORCE			400.0
-#define GRASS_TIME				0.1
+#define SURFACE_BOOST_TIME		0.1
+#define GRASS_BOOST_POWER		0.5
 
 #define RESET_HOLD_TIME			1.0
 
@@ -227,6 +227,7 @@ new const CLASSNAME_PORTAL[] =		"kr_portal"
 
 new const TNAME_CHECKPOINT[] =		"checkpoint"
 new const TNAME_BONUS[] =			"bonus"
+new const TNAME_BOOSTER[] =			"kart_booster"
 new const TNAME_GRASS[] =			"kart_grass"
 new const TNAME_PREPTARGET[] =		"kart_preptarget"
 new const TNAME_PREPPOS[] =			"kart_preppos"
@@ -248,6 +249,9 @@ new const TNAME_CHPATH_REVERSE[] =	"kart_chpath_reverse"
 #define var_lifetime			var_fuser2
 #define var_targetcar			var_iuser3
 
+#define var_boostertype			var_iuser2
+#define var_boosterangles		var_vuser2
+
 #define var_ufomark				var_iuser2
 #define var_ufospawn			var_iuser2
 
@@ -258,8 +262,8 @@ new const TNAME_CHPATH_REVERSE[] =	"kart_chpath_reverse"
 
 #define EF_OWNER_VISIBILITY     4096 // visibility for owner
 
-new const SZ_INFO_TARGET[] = 	"info_target"
-new const SZ_TARGETNAME[] =		"targetname"
+new const SZ_INFO_TARGET[]		= "info_target"
+new const SZ_TARGETNAME[]		= "targetname"
 
 enum KartItemType
 {
@@ -272,6 +276,12 @@ enum KartItemType
 	KIT_UFO,
 	KIT_PORTAL,
 	KIT_END
+}
+
+enum BoosterType
+{
+	BT_SURFACE,
+	BT_IMPULSE
 }
 
 enum _:DataKartItem
@@ -341,7 +351,9 @@ new Float:g_fCarUnControlRotForce[MAX_PLAYERS + 1]
 new Float:g_fCarRecAngle[MAX_PLAYERS + 1]
 new Float:g_fCarGloveTime[MAX_PLAYERS + 1]
 new Float:g_fCarDizzyTime[MAX_PLAYERS + 1]
-new Float:g_fCarGrassTime[MAX_PLAYERS + 1]
+
+new Float:g_fCarBoosterTime[MAX_PLAYERS + 1]
+new Float:g_fCarBoosterPower[MAX_PLAYERS + 1]
 
 new g_iSkidingSound[MAX_PLAYERS + 1]
 new Float:g_fSkidingSoundTime[MAX_PLAYERS + 1]
@@ -485,7 +497,7 @@ public plugin_init()
 	create_char_menu()
 	create_spectator_accept_menu()
 
-	new szTargetName[16]
+	new szTargetName[16], szTarget[32]
 
 	g_aCPEnts = ArrayCreate(DataCPEnts)
 
@@ -526,9 +538,36 @@ public plugin_init()
 
 	update_prepare_origins()
 
-	new iGrassTriggerEnt = NULLENT
-	while ((iGrassTriggerEnt = engfunc(EngFunc_FindEntityByString, iGrassTriggerEnt, SZ_TARGETNAME, TNAME_GRASS)))
-		set_entvar(iGrassTriggerEnt, var_impulse, IMPULSE_GRASS)
+	new iBoosterTriggerEnt = NULLENT
+	while ((iBoosterTriggerEnt = engfunc(EngFunc_FindEntityByString, iBoosterTriggerEnt, SZ_TARGETNAME, TNAME_BOOSTER)))
+	{
+		get_entvar(iBoosterTriggerEnt, var_target, szTarget, charsmax(szTarget))
+		new iBoosterTargetEnt = engfunc(EngFunc_FindEntityByString, NULLENT, SZ_TARGETNAME, szTarget)
+
+		if (!is_nullent(iBoosterTargetEnt))
+		{
+			new Float:vAngles[3]
+			get_entvar(iBoosterTargetEnt, var_angles, vAngles)
+			set_entvar(iBoosterTargetEnt, var_flags, FL_KILLME)
+
+			set_entvar(iBoosterTriggerEnt, var_boosterangles, vAngles)
+			set_entvar(iBoosterTriggerEnt, var_boostertype, BT_IMPULSE)
+		}
+		else
+		{
+			set_entvar(iBoosterTriggerEnt, var_boostertype, BT_SURFACE)
+		}
+
+		set_entvar(iBoosterTriggerEnt, var_impulse, IMPULSE_BOOSTER)
+	}
+
+	iBoosterTriggerEnt = NULLENT
+	while ((iBoosterTriggerEnt = engfunc(EngFunc_FindEntityByString, iBoosterTriggerEnt, SZ_TARGETNAME, TNAME_GRASS)))
+	{
+		set_entvar(iBoosterTriggerEnt, var_boostertype, BT_SURFACE)
+		set_entvar(iBoosterTriggerEnt, var_scale, GRASS_BOOST_POWER)
+		set_entvar(iBoosterTriggerEnt, var_impulse, IMPULSE_BOOSTER)
+	}
 
 	create_itemboxes()
 	set_items_props()
@@ -723,19 +762,19 @@ public start_game()
 
 	new iBlowFishEnt
 	while ((iBlowFishEnt = rg_find_ent_by_class(iBlowFishEnt, CLASSNAME_BLOWFISH)))
-		set_entvar(iBlowFishEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iBlowFishEnt)
 
 	new iUFOEnt
 	while ((iUFOEnt = rg_find_ent_by_class(iUFOEnt, CLASSNAME_UFO)))
-		set_entvar(iUFOEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iUFOEnt)
 
 	new iUFOSpawnEnt
 	while ((iUFOSpawnEnt = rg_find_ent_by_class(iUFOSpawnEnt, CLASSNAME_UFOSPAWN)))
-		set_entvar(iUFOSpawnEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iUFOSpawnEnt)
 
 	new iPortalEnt
 	while ((iPortalEnt = rg_find_ent_by_class(iPortalEnt, CLASSNAME_PORTAL)))
-		set_entvar(iPortalEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iPortalEnt)
 
 	new iAmbientEnt
 	while ((iAmbientEnt = rg_find_ent_by_class(iAmbientEnt, "ambient_generic", true)))
@@ -821,6 +860,14 @@ apply_checkpoints(bool:bReverse)
 					get_entvar(iUFOMarkEnt, var_origin, vPivot)
 				reverse_ent(iUFOMarkEnt, vPivot)
 			}
+		}
+
+		new iBoosterTriggerEnt = NULLENT, Float:vBoosterAngles[3]
+		while ((iBoosterTriggerEnt = engfunc(EngFunc_FindEntityByString, iBoosterTriggerEnt, SZ_TARGETNAME, TNAME_BOOSTER)))
+		{
+			get_entvar(iBoosterTriggerEnt, var_boosterangles, vBoosterAngles)
+			xs_vec_neg(vBoosterAngles, vBoosterAngles)
+			set_entvar(iBoosterTriggerEnt, var_boosterangles, vBoosterAngles)
 		}
 
 		new iChangeDirEnt = NULLENT
@@ -1341,7 +1388,7 @@ public fwd_CarThink(iCarEnt)
 
 	static Float:vOrigin[3], Float:vAngles[3], Float:vVelocity[3], Float:vAVelocity[3],
 		Float:fMaxForce, Float:fEngineForce, Float:fTurnAngle, Float:fBrakeForce, Float:fJumpForce,
-		Float:fMaxGrip, Float:fSpeed, Float:fAngle, Float:fDir,
+		Float:fMaxGrip, Float:fSpeed, Float:fAngle, Float:fDir, Float:fBoosterForce,
 		Float:fGrip, Float:fVAngle, Float:vAccel[3], Float:fTireGrip, iShouldJump,
 		iButtons, iFlags, iOldButtons[MAX_PLAYERS + 1], iCarUnControling, iCarSkiding
 
@@ -1363,7 +1410,11 @@ public fwd_CarThink(iCarEnt)
 	fBrakeForce = 0.0
 	fJumpForce = g_fCarJumpForce[iPlayer]
 	iCarSkiding = 0
+	fBoosterForce = g_fCarBoosterTime[iPlayer] > fGameTime ? g_fCarBoosterPower[iPlayer] : 1.0
 	fMaxForce = MAX_FORCE - max(0, MAX_POS_PEN - (g_iPlayerCurrPos[iPlayer] - 1)) * POS_PEN_FORCE
+
+	if (fBoosterForce > 1.0)
+		fMaxForce *= fBoosterForce
 
 	if (iButtons & BTN_FORWARD)
 	{
@@ -1441,23 +1492,15 @@ public fwd_CarThink(iCarEnt)
 
 	try_skiding_sound(iPlayer, iCarEnt, iCarSkiding)
 
-	// TODO: clamp
 	if (g_fCarChillTime[iPlayer] > fGameTime)
-	{
-		if (fEngineForce > CHILL_MAX_FORCE)
-			fEngineForce = CHILL_MAX_FORCE
-		else if (fEngineForce < -CHILL_MAX_FORCE)
-			fEngineForce = -CHILL_MAX_FORCE
-	}
+		fEngineForce = floatclamp(fEngineForce, -CHILL_MAX_FORCE, CHILL_MAX_FORCE)
 	else
 		reset_player_car_chill(iPlayer, iCarEnt)
 
-	if (g_fCarGrassTime[iPlayer] > fGameTime)
+	if (fBoosterForce < 1.0)
 	{
-		if (fEngineForce > GRASS_MAX_FORCE)
-			fEngineForce = GRASS_MAX_FORCE
-		else if (fEngineForce < -GRASS_MAX_FORCE)
-			fEngineForce = -GRASS_MAX_FORCE
+		new Float:fModMaxSpeed = MAX_FORCE * fBoosterForce
+		fEngineForce = floatclamp(fEngineForce, -fModMaxSpeed, fModMaxSpeed)
 	}
 
 	fAngle = vAngles[1] / 180.0 * M_PI
@@ -1982,14 +2025,14 @@ spectator_think(iPlayer)
 
 public fwd_SnowballThink(iSnowballEnt)
 {
-	set_entvar(iSnowballEnt, var_flags, FL_KILLME)
+	rg_remove_entity(iSnowballEnt)
 }
 
 public fwd_BlowfishThink(iBlowfishEnt)
 {
 	if (get_entvar(iBlowfishEnt, var_missile_mode) == 1)
 	{
-		set_entvar(iBlowfishEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iBlowfishEnt)
 		return
 	}
 
@@ -2046,8 +2089,8 @@ public fwd_UFOSpawnThink(iUFOSpawnEnt)
 	new iUFOEnt
 	while ((iUFOEnt = rg_find_ent_by_class(iUFOEnt, CLASSNAME_UFO)))
 		if (get_entvar(iUFOEnt, var_ufospawn) == iUFOSpawnEnt)
-			set_entvar(iUFOEnt, var_flags, FL_KILLME)
-	set_entvar(iUFOSpawnEnt, var_flags, FL_KILLME)
+			rg_remove_entity(iUFOEnt)
+	rg_remove_entity(iUFOSpawnEnt)
 }
 
 public fwd_UFOThink(iUFOEnt)
@@ -2098,8 +2141,8 @@ public fwd_UFOTouch(iUFOEnt, iToucher)
 public fwd_EnterPortalThink(iEnterPortalEnt)
 {
 	new iExitPortalEnt = get_entvar(iEnterPortalEnt, var_portal_pair)
-	set_entvar(iEnterPortalEnt, var_flags, FL_KILLME)
-	set_entvar(iExitPortalEnt, var_flags, FL_KILLME)
+	rg_remove_entity(iEnterPortalEnt)
+	rg_remove_entity(iExitPortalEnt)
 }
 
 public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
@@ -2249,7 +2292,7 @@ reset_car(iCarEnt, iPlayer)
 	new iTornadoEnt = NULLENT
 	while ((iTornadoEnt = rg_find_ent_by_class(iTornadoEnt, CLASSNAME_TORNADO)))
 		if (get_entvar(iTornadoEnt, var_targetcar) == iCarEnt)
-			set_entvar(iTornadoEnt, var_flags, FL_KILLME)
+			rg_remove_entity(iTornadoEnt)
 }
 
 hit_player_car(iPlayer, iCarEnt, Float:fUnControlTime, Float:fRotForce=720.0)
@@ -2265,6 +2308,25 @@ hit_player_car(iPlayer, iCarEnt, Float:fUnControlTime, Float:fRotForce=720.0)
 	new Float:vAngles[3]
 	get_entvar(iCarEnt, var_angles, vAngles)
 	g_fCarRecAngle[iPlayer] = vAngles[1]
+}
+
+boost_player_car(iPlayer, iCarEnt, Float:fForce, Float:vAngles[3])
+{
+	// if (get_entvar(iCarEnt, var_flags) & FL_ONGROUND)
+	if (get_entvar(iCarEnt, var_flags))
+	{
+		new Float:vVelocity[3]
+		angle_vector(vAngles, ANGLEVECTOR_FORWARD, vVelocity)
+		xs_vec_mul_scalar(vVelocity, fForce, vVelocity)
+
+		if (xs_vec_len(g_vCarVelocity[iPlayer]) < fForce * 0.7)
+			emit_sound(iCarEnt, CHAN_AUTO, SOUND_BOOSTER, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
+
+		g_vCarVelocity[iPlayer][0] = vVelocity[0]
+		g_vCarVelocity[iPlayer][1] = vVelocity[1]
+	}
+
+	g_fCarEngineForce[iPlayer] = MAX_FORCE
 }
 
 reset_player_car_chill(iPlayer, iCarEnt)
@@ -2594,7 +2656,7 @@ set_player_item(iPlayer, KartItemType:iKartItem, iAmmo=0)
 	{
 		if (iTargetSpriteEnt)
 		{
-			set_entvar(iTargetSpriteEnt, var_flags, FL_KILLME)
+			rg_remove_entity(iTargetSpriteEnt)
 			g_iTargetSpriteEnt[iPlayer] = 0
 		}
 	}
@@ -2616,7 +2678,7 @@ reset_player_item(iPlayer)
 	new iTargetSpriteEnt = g_iTargetSpriteEnt[iPlayer]
 	if (iTargetSpriteEnt)
 	{
-		set_entvar(iTargetSpriteEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iTargetSpriteEnt)
 		g_iTargetSpriteEnt[iPlayer] = 0
 	}
 }
@@ -2724,21 +2786,10 @@ use_snowball(iPlayer, iCarEnt)
 
 use_booster(iPlayer, iCarEnt)
 {
-	// if (get_entvar(iCarEnt, var_flags) & FL_ONGROUND)
-	if (get_entvar(iCarEnt, var_flags))
-	{
-		new Float:vAngles[3], Float:vVelocity[3]
-		get_entvar(iCarEnt, var_angles, vAngles)
-		angle_vector(vAngles, ANGLEVECTOR_FORWARD, vVelocity)
-		xs_vec_mul_scalar(vVelocity, BOOSTER_FORCE, vVelocity)
+	new Float:vAngles[3]
+	get_entvar(iCarEnt, var_angles, vAngles)
 
-		g_vCarVelocity[iPlayer][0] = vVelocity[0]
-		g_vCarVelocity[iPlayer][1] = vVelocity[1]
-	}
-
-	emit_sound(iCarEnt, CHAN_AUTO, SOUND_BOOSTER, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
-
-	g_fCarEngineForce[iPlayer] = MAX_FORCE
+	boost_player_car(iPlayer, iCarEnt, BOOSTER_FORCE, vAngles)
 
 	return 1
 }
@@ -2844,7 +2895,7 @@ remove_glove(iPlayer)
 {
 	if (g_fCarGloveEnt[iPlayer])
 	{
-		set_entvar(g_fCarGloveEnt[iPlayer], var_flags, FL_KILLME)
+		rg_remove_entity(g_fCarGloveEnt[iPlayer])
 		g_fCarGloveEnt[iPlayer] = 0
 	}
 	g_fCarGloveTime[iPlayer] = 0.0
@@ -3125,7 +3176,7 @@ remove_tornado_warn(iPlayer)
 {
 	if (g_fCarTornadoWarnEnt[iPlayer])
 	{
-		set_entvar(g_fCarTornadoWarnEnt[iPlayer], var_flags, FL_KILLME)
+		rg_remove_entity(g_fCarTornadoWarnEnt[iPlayer])
 		g_fCarTornadoWarnEnt[iPlayer] = 0
 	}
 }
@@ -3161,7 +3212,7 @@ remove_dizzy(iPlayer)
 {
 	if (g_fCarDizzyEnt[iPlayer])
 	{
-		set_entvar(g_fCarDizzyEnt[iPlayer], var_flags, FL_KILLME)
+		rg_remove_entity(g_fCarDizzyEnt[iPlayer])
 		g_fCarDizzyEnt[iPlayer] = 0
 
 		new iButtons = g_iButtons[iPlayer]
@@ -3353,7 +3404,7 @@ public fwd_TouchMultiple_Pre(iEnt, iToucher)
 	{
 		case IMPULSE_CHECKPOINT: return touch_checkpoint(iEnt, iToucher)
 		case IMPULSE_RESETZONE: return touch_reset_zone(iEnt, iToucher)
-		case IMPULSE_GRASS: return touch_grass_zone(iEnt, iToucher)
+		case IMPULSE_BOOSTER: return touch_booster_zone(iEnt, iToucher)
 	}
 
 	return HAM_IGNORED
@@ -3478,15 +3529,27 @@ touch_reset_zone(iEnt, iToucher)
 	return HAM_IGNORED
 }
 
-touch_grass_zone(iEnt, iToucher)
+touch_booster_zone(iEnt, iToucher)
 {
-	#pragma unused iEnt
-
 	new iPlayer = get_entvar(iToucher, var_owner)
 	if (!iPlayer)
 		return HAM_IGNORED
 
-	g_fCarGrassTime[iPlayer] = get_gametime() + GRASS_TIME
+	new BoosterType:iBoosterType = BoosterType:get_entvar(iEnt, var_body)
+	new Float:fPower = Float:get_entvar(iEnt, var_scale)
+
+	if (iBoosterType == BT_SURFACE || fPower < 1.0)
+	{
+		g_fCarBoosterTime[iPlayer] = get_gametime() + SURFACE_BOOST_TIME
+		g_fCarBoosterPower[iPlayer] = fPower
+	}
+	else if (iBoosterType == BT_IMPULSE)
+	{
+		new Float:vAngles[3]
+		get_entvar(iEnt, var_boosterangles, vAngles)
+		boost_player_car(iPlayer, iToucher, MAX_FORCE * fPower, vAngles)
+	}
+
 	return HAM_IGNORED
 }
 
@@ -3563,7 +3626,7 @@ public fwd_SnowballTouch(iSnowballEnt, iToucher)
 				if (g_kitPlayerItem[iPlayer] == KIT_NULL)
 					set_player_item(iPlayer, KIT_SNOWBALL, 1)
 				remove_glove(iPlayer)
-				set_entvar(iSnowballEnt, var_flags, FL_KILLME)
+				rg_remove_entity(iSnowballEnt)
 				emit_sound(iToucher, CHAN_AUTO, SOUND_CATCH, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 				return HC_CONTINUE
 			}
@@ -3620,12 +3683,12 @@ public fwd_SnowballTouch(iSnowballEnt, iToucher)
 			emit_sound(iToucher, CHAN_AUTO, SOUND_SNOWBALL_HIT, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 			fm_set_rendering(iToucher, kRenderFxGlowShell, 84, 231, 247, kRenderNormal, 16)
 
-			set_entvar(iSnowballEnt, var_flags, FL_KILLME)
+			rg_remove_entity(iSnowballEnt)
 		}
 		case IMPULSE_BLOWFISH:
 		{
-			set_entvar(iSnowballEnt, var_flags, FL_KILLME)
-			set_entvar(iToucher, var_flags, FL_KILLME)
+			rg_remove_entity(iSnowballEnt)
+			rg_remove_entity(iToucher)
 		}
 	}
 
@@ -3651,7 +3714,7 @@ public fwd_BlowfishTouch(iBlowfishEnt, iToucher)
 		if (g_kitPlayerItem[iPlayer] == KIT_NULL)
 			set_player_item(iPlayer, KIT_BLOWFISH, 1)
 		remove_glove(iPlayer)
-		set_entvar(iBlowfishEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iBlowfishEnt)
 		emit_sound(iToucher, CHAN_AUTO, SOUND_CATCH, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 		return HC_CONTINUE
 	}
@@ -3664,7 +3727,7 @@ public fwd_BlowfishTouch(iBlowfishEnt, iToucher)
 		iAttacker = get_entvar(iOwnerCar, var_owner)
 	show_hit_message(iAttacker, iPlayer, CLASSNAME_BLOWFISH)
 
-	set_entvar(iBlowfishEnt, var_flags, FL_KILLME)
+	rg_remove_entity(iBlowfishEnt)
 
 	return HC_CONTINUE
 }
@@ -3682,7 +3745,7 @@ public fwd_TornadoThink(iTornadoEnt)
 			new iTargetPlayer = get_entvar(iTagetCar, var_owner)
 			remove_tornado_warn(iTargetPlayer)
 		}
-		set_entvar(iTornadoEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iTornadoEnt)
 		return HC_CONTINUE
 	}
 
@@ -3727,7 +3790,7 @@ public fwd_TornadoTouch(iTornadoEnt, iToucher)
 		if (g_kitPlayerItem[iPlayer] == KIT_NULL)
 			set_player_item(iPlayer, KIT_TORNADO, 1)
 		remove_glove(iPlayer)
-		set_entvar(iTornadoEnt, var_flags, FL_KILLME)
+		rg_remove_entity(iTornadoEnt)
 		emit_sound(iToucher, CHAN_AUTO, SOUND_CATCH, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 		return HC_CONTINUE
 	}
@@ -3739,7 +3802,7 @@ public fwd_TornadoTouch(iTornadoEnt, iToucher)
 		iAttacker = get_entvar(iOwnerCar, var_owner)
 	show_hit_message(iAttacker, iPlayer, CLASSNAME_TORNADO)
 
-	set_entvar(iTornadoEnt, var_flags, FL_KILLME)
+	rg_remove_entity(iTornadoEnt)
 
 	if (g_fCarDizzyEnt[iPlayer])
 		remove_dizzy(iPlayer)
