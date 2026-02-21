@@ -764,6 +764,10 @@ public start_game()
 	while ((iBlowFishEnt = rg_find_ent_by_class(iBlowFishEnt, CLASSNAME_BLOWFISH)))
 		rg_remove_entity(iBlowFishEnt)
 
+	new iTornadoEnt
+	while ((iTornadoEnt = rg_find_ent_by_class(iTornadoEnt, CLASSNAME_TORNADO)))
+		rg_remove_entity(iTornadoEnt)
+
 	new iUFOEnt
 	while ((iUFOEnt = rg_find_ent_by_class(iUFOEnt, CLASSNAME_UFO)))
 		rg_remove_entity(iUFOEnt)
@@ -2903,32 +2907,8 @@ remove_glove(iPlayer)
 
 use_tornado(iPlayer, iCarEnt)
 {
-	new iTargetPlayer = NULLENT
-	new iMinPos = MAX_PLAYERS + 1
-
-	for (new i = 1, iPos; i <= MAX_PLAYERS; i++)
-	{
-		if (iPlayer == i)
-			continue
-
-		if (g_pgsPlayerGameState[i] != PGS_INGAME)
-			continue
-
-		if (g_fCarDizzyEnt[i])
-			continue
-
-		iPos = g_iPlayerCurrPos[i]
-		if (iPos <= g_iFinPlayersNum)
-			continue
-
-		if (iPos < iMinPos)
-		{
-			iMinPos = iPos
-			iTargetPlayer = i
-		}
-	}
-
-	if (iTargetPlayer < 0)
+	new iTargetPlayer = find_tornado_target(iPlayer)
+	if (iTargetPlayer <= 0)
 		return 0
 
 	new iTargetCarEnt = g_iCarsEnt[iTargetPlayer]
@@ -3149,6 +3129,66 @@ set_portal_common_properties(iPortalEnt)
 	set_entvar(iPortalEnt, var_gravity, 0.0001)
 
 	fm_set_rendering(iPortalEnt, kRenderFxNone, 255, 255, 255, kRenderTransAdd, 255)
+}
+
+find_tornado_target(iPlayer)
+{
+	new iTargetPlayer = NULLENT
+	new iMinPos = MAX_PLAYERS + 1
+
+	for (new i = 1, iPos; i <= MAX_PLAYERS; i++)
+	{
+		if (iPlayer == i)
+			continue
+
+		if (g_pgsPlayerGameState[i] != PGS_INGAME)
+			continue
+
+		if (g_fCarDizzyEnt[i])
+			continue
+
+		iPos = g_iPlayerCurrPos[i]
+		if (iPos <= g_iFinPlayersNum)
+			continue
+
+		if (iPos < iMinPos)
+		{
+			iMinPos = iPos
+			iTargetPlayer = i
+		}
+	}
+
+	return iTargetPlayer
+}
+
+retarget_tornado(iTornadoEnt)
+{
+	new iTornadoOwnerCar = get_entvar(iTornadoEnt, var_owner)
+	if (is_nullent(iTornadoOwnerCar))
+	{
+		rg_remove_entity(iTornadoEnt)
+		return NULLENT
+	}
+
+	new iTornadoOwner = get_entvar(iTornadoOwnerCar, var_owner)
+	if (!iTornadoOwner)
+	{
+		rg_remove_entity(iTornadoEnt)
+		return NULLENT
+	}
+
+	new iTargetPlayer = find_tornado_target(iTornadoOwner)
+	if (iTargetPlayer <= 0)
+	{
+		rg_remove_entity(iTornadoEnt)
+		return NULLENT
+	}
+
+	new iTargetCarEnt = g_iCarsEnt[iTargetPlayer]
+	set_tornado_warn(iTargetPlayer, iTargetCarEnt)
+	set_entvar(iTornadoEnt, var_targetcar, iTargetCarEnt)
+
+	return iTargetPlayer
 }
 
 set_tornado_warn(iPlayer, iCarEnt)
@@ -3491,6 +3531,12 @@ touch_checkpoint(iEnt, iToucher)
 			g_iPlayerCurrPos[iPlayer] = g_iFinPlayersNum
 
 			reset_player_item(iPlayer)
+			remove_tornado_warn(iPlayer)
+
+			new iTornadoEnt = NULLENT
+			while ((iTornadoEnt = rg_find_ent_by_class(iTornadoEnt, CLASSNAME_TORNADO)))
+				if (get_entvar(iTornadoEnt, var_targetcar) == iToucher)
+					retarget_tornado(iTornadoEnt)
 		}
 		else
 		{
