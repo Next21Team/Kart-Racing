@@ -3627,7 +3627,7 @@ public fwd_ItemboxTouch(iItemboxEnt, iToucher)
 	for (new i, iPosMin, iPosMax; i < _:KIT_END; i++)
 	{
 		iPosMin = g_kitemProps[i][KITEM_POS_MIN]
-		iPosMax = g_kitemProps[i][KITEM_POS_MIN]
+		iPosMax = g_kitemProps[i][KITEM_POS_MAX]
 
 		if (iPosMin && iPlayerPos < iPosMin)
 			continue
