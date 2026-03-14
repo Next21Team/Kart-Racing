@@ -256,9 +256,7 @@ new const TNAME_CHPATH_REVERSE[] =	"kart_chpath_reverse"
 #define var_ufospawn			var_iuser2
 
 #define var_portal_pair			var_iuser1
-#define var_portal_prevcpid		var_iuser2
-#define var_portal_nextcpent	var_iuser3
-#define var_portal_passedcp		var_iuser4
+#define var_portal_passedcp		var_iuser2
 
 #define EF_OWNER_VISIBILITY     4096 // visibility for owner
 
@@ -2178,12 +2176,15 @@ public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
 		if (iToucherImpulse == IMPULSE_CAR)
 		{
 			new iPlayer = get_entvar(iToucher, var_owner)
-			new iPassedCP = get_entvar(iEnterPortalEnt, var_portal_passedcp)
-			g_iPlayerPrevCPId[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_prevcpid)
-			g_iPlayerNextCP[iPlayer] = get_entvar(iEnterPortalEnt, var_portal_nextcpent)
-			if (iPassedCP > g_iPlayerPassedCP[iPlayer])
-				g_iPlayerPassedCP[iPlayer] = iPassedCP
-			update_pos_list()
+
+			new iTargetPassedCP = get_entvar(iEnterPortalEnt, var_portal_passedcp)
+			new iNeedPassedCP = iTargetPassedCP - g_iPlayerPassedCP[iPlayer]
+
+			while (iNeedPassedCP > 0)
+			{
+				touch_checkpoint(g_iPlayerNextCP[iPlayer], iToucher)
+				iNeedPassedCP--
+			}
 
 			client_cmd(iPlayer, "spk ^"%s^"", SOUND_PORTAL_TELEPORT)
 		}
@@ -3021,8 +3022,6 @@ use_portal(iPlayer, iCarEnt)
 	set_entvar(iExitPortalEnt, var_skin, 1)
 
 	set_entvar(iEnterPortalEnt, var_portal_pair, iExitPortalEnt)
-	set_entvar(iEnterPortalEnt, var_portal_prevcpid, g_iPlayerPrevCPId[iTargetPlayer])
-	set_entvar(iEnterPortalEnt, var_portal_nextcpent, g_iPlayerNextCP[iTargetPlayer])
 	set_entvar(iEnterPortalEnt, var_portal_passedcp, g_iPlayerPassedCP[iTargetPlayer])
 
 	set_entvar(iExitPortalEnt, var_portal_pair, iEnterPortalEnt)
