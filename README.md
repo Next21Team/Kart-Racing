@@ -44,3 +44,4 @@ https://github.com/Next21Team/Kart-Racing/wiki
 
 ## Third-party extensions
 - [Kart Racing: NCL Hit Icons](https://github.com/Next21Team/Kart-Racing-NCL-Hit-Icons)
+- [Kart Racing: Background Music](https://github.com/Next21Team/Kart-Racing-Background-Music)
