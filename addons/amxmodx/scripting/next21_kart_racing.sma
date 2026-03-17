@@ -1379,7 +1379,7 @@ public fwd_CarThink(iCarEnt)
 	fDeltaTime = fGameTime - g_fCarLastThink[iPlayer]
 	g_fCarLastThink[iPlayer] = fGameTime
 
-	if (g_gsGameState != GS_PLAYING)
+	if (g_gsGameState == GS_STARTING)
 	{
 		if (g_iCamerasEnt[iPlayer])
 			camera_think(g_iCamerasEnt[iPlayer], iCarEnt, iPlayer)
