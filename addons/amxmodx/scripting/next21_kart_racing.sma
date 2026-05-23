@@ -2968,30 +2968,50 @@ use_portal(iPlayer, iCarEnt)
 	if (g_fCarUnControlTime[iTargetPlayer] >= fGameTime)
 		return 0
 
-	new Float:vCarOrigin[3], Float:vCarAngles[3], Float:vCarDir[3]
+	new Float:vCarOrigin[3], Float:vCarDir[3]
 	get_entvar(iCarEnt, var_origin, vCarOrigin)
-	get_entvar(iCarEnt, var_angles, vCarAngles)
-	angle_vector(vCarAngles, ANGLEVECTOR_FORWARD, vCarDir)
-	if (!get_entvar(iCarEnt, var_flags)) // Flying
+	get_entvar(iCarEnt, var_velocity, vCarDir)
+
+	if (xs_vec_len_2d(vCarDir) <= 1.0)
 	{
-		vCarDir[2] = 0.0
-		xs_vec_normalize(vCarDir, vCarDir)
-	}
-	else
-	{
+		// use car angles instead of velocity
+		get_entvar(iCarEnt, var_angles, vCarDir)
+		angle_vector(vCarDir, ANGLEVECTOR_FORWARD, vCarDir)
 		vCarDir[2] = -vCarDir[2]
 	}
 
-	new Float:vTargetOrigin[3], Float:vTargetAngles[3], Float:vTargetDir[3]
+	if (!get_entvar(iCarEnt, var_flags)) // Flying
+		vCarDir[2] = 0.0
+
+	xs_vec_normalize(vCarDir, vCarDir)
+
+	new Float:vTargetOrigin[3], Float:vTargetDir[3]
 	get_entvar(iTargetCarEnt, var_origin, vTargetOrigin)
-	get_entvar(iTargetCarEnt, var_angles, vTargetAngles)
-	angle_vector(vTargetAngles, ANGLEVECTOR_FORWARD, vTargetDir)
-	vTargetDir[2] = 0.0
+	get_entvar(iTargetCarEnt, var_velocity, vTargetDir)
+
+	if (xs_vec_len_2d(vTargetDir) <= 1.0)
+	{
+		// use car angles instead of velocity
+		get_entvar(iTargetCarEnt, var_angles, vTargetDir)
+		angle_vector(vTargetDir, ANGLEVECTOR_FORWARD, vTargetDir)
+		vTargetDir[2] = -vTargetDir[2]
+	}
+
+	if (!get_entvar(iTargetCarEnt, var_flags)) // Flying
+		vTargetDir[2] = 0.0
+
 	xs_vec_normalize(vTargetDir, vTargetDir)
+
+	if (xs_vec_dot(vCarDir, vTargetDir) <= 0.0)
+		xs_vec_copy(vCarDir, vTargetDir)
 
 	new Float:vEnterPortalOrigin[3], Float:vExitPortalOrigin[3]
 	find_enter_portal_free_space(iCarEnt, vCarOrigin, PORTAL_ENTER_OFFSET, vCarDir, vEnterPortalOrigin)
 	find_exit_portal_free_space(iTargetCarEnt, vTargetOrigin, PORTAL_EXIT_OFFSET, vTargetDir, vExitPortalOrigin)
+
+	new Float:vEnterPortalAngles[3], Float:vExitPortalAngles[3]
+	vector_to_angle(vCarDir, vEnterPortalAngles)
+	vector_to_angle(vTargetDir, vExitPortalAngles)
 
 	if (xs_vec_distance(vEnterPortalOrigin, vExitPortalOrigin) < PORTAL_MIN_DISTANCE)
 		return 0
@@ -3014,11 +3034,11 @@ use_portal(iPlayer, iCarEnt)
 	engfunc(EngFunc_SetOrigin, iExitPortalEnt, vExitPortalOrigin)
 
 	set_entvar(iEnterPortalEnt, var_origin, vEnterPortalOrigin)
-	set_entvar(iEnterPortalEnt, var_angles, vCarAngles)
+	set_entvar(iEnterPortalEnt, var_angles, vEnterPortalAngles)
 	set_entvar(iEnterPortalEnt, var_skin, 0)
 
 	set_entvar(iExitPortalEnt, var_origin, vExitPortalOrigin)
-	set_entvar(iExitPortalEnt, var_angles, vTargetAngles)
+	set_entvar(iExitPortalEnt, var_angles, vExitPortalAngles)
 	set_entvar(iExitPortalEnt, var_skin, 1)
 
 	set_entvar(iEnterPortalEnt, var_portal_pair, iExitPortalEnt)
