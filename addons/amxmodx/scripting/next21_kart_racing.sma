@@ -1661,7 +1661,7 @@ public fwd_CarThink(iCarEnt)
 		}
 		else
 		{
-			if (vAngles[0] <= 0.0 || vAngles[0] >= 180.0)
+			if (vVelocity[2] <= 0.0)
 				vVelocity[2] -= GRAVITY * fDeltaTime // To stop him from riding up the wall, almost
 			else
 				vVelocity[2] -= GRAVITY * fDeltaTime * 3.0
