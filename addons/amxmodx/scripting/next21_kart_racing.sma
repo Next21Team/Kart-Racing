@@ -138,7 +138,6 @@ new const SKYNAME[] = "drcrash2"
 
 #define SPECTATOR_MAXSPEED		800.0
 
-#define ITEMBOX_RESPAWN_TIME	3.0
 #define ITEMBOX_SIZES			Float:{ -15.0, -15.0, 0.0 }, Float:{ 15.0, 15.0, 30.0 }
 
 #define SNOWBALL_AMMO			3
@@ -385,6 +384,7 @@ new g_pCvarStartWaitingTime
 new g_pCvarStartMinPlayers
 new g_pCvarEndingTime
 new Float:g_pCvarEngineVolume
+new Float:g_pCvarItemboxRespawnTime
 
 new g_msgHideWeapon
 new g_msgScoreInfo
@@ -619,6 +619,7 @@ public plugin_init()
 	bind_pcvar_num(pCvarStartMinPlayers, g_pCvarStartMinPlayers)
 	bind_pcvar_num(register_cvar("kart_ending_time", "25"), g_pCvarEndingTime)
 	bind_pcvar_float(register_cvar("kart_engine_volume", "0.6"), g_pCvarEngineVolume)
+	bind_pcvar_float(register_cvar("kart_itembox_respawn_time", "3.0"), g_pCvarItemboxRespawnTime)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
@@ -3638,7 +3639,7 @@ public fwd_ItemboxTouch(iItemboxEnt, iToucher)
 
 	set_entvar(iItemboxEnt, var_solid, SOLID_NOT)
 	set_entvar(iItemboxEnt, var_effects, EF_NODRAW)
-	set_entvar(iItemboxEnt, var_nextthink, get_gametime() + ITEMBOX_RESPAWN_TIME)
+	set_entvar(iItemboxEnt, var_nextthink, get_gametime() + g_pCvarItemboxRespawnTime)
 
 	new iPlayerPos = g_iPlayerCurrPos[iPlayer]
 
