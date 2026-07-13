@@ -165,7 +165,6 @@ new const SKYNAME[] = "drcrash2"
 #define GLOVE_AMMO				1
 #define GLOVE_POS_MIN			0
 #define GLOVE_POS_MAX			5
-#define GLOVE_LIFE				7.0
 
 #define TORNADO_AMMO			1
 #define TORNADO_POS_MIN			5
@@ -385,6 +384,7 @@ new g_pCvarStartMinPlayers
 new g_pCvarEndingTime
 new Float:g_pCvarEngineVolume
 new Float:g_pCvarItemboxRespawnTime
+new Float:g_pCvarGloveLifeTime
 
 new g_msgHideWeapon
 new g_msgScoreInfo
@@ -620,6 +620,7 @@ public plugin_init()
 	bind_pcvar_num(register_cvar("kart_ending_time", "25"), g_pCvarEndingTime)
 	bind_pcvar_float(register_cvar("kart_engine_volume", "0.6"), g_pCvarEngineVolume)
 	bind_pcvar_float(register_cvar("kart_itembox_respawn_time", "3.0"), g_pCvarItemboxRespawnTime)
+	bind_pcvar_float(register_cvar("kart_glove_life_time", "6.0"), g_pCvarGloveLifeTime)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
@@ -2890,7 +2891,7 @@ public use_glove(iPlayer, iCarEnt)
 
 	remove_glove(iPlayer)
 	g_fCarGloveEnt[iPlayer] = iGloveEnt
-	g_fCarGloveTime[iPlayer] = fGameTime + GLOVE_LIFE
+	g_fCarGloveTime[iPlayer] = fGameTime + g_pCvarGloveLifeTime
 
 	emit_sound(iCarEnt, CHAN_AUTO, SOUND_GLOVE_LAUNCH, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
 
