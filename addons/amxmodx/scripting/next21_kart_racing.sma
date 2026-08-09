@@ -2,7 +2,9 @@
 #include <engine>
 #include <fakemeta_util>
 #include <hamsandwich>
+#include <nvault>
 #include <reapi>
+#include <time>
 #include <xs>
 
 #include <kart_const>
@@ -368,6 +370,9 @@ new g_iPlayerCurrLap[MAX_PLAYERS + 1]
 new g_iPlayerCurrSpawn[MAX_PLAYERS + 1]
 new g_iPlayerCurrPos[MAX_PLAYERS + 1]
 
+new g_iPlayerSelectedChar[MAX_PLAYERS + 1]
+new g_iPlayerSelectedColor[MAX_PLAYERS + 1]
+
 new Array:g_aCPEnts
 
 new Array:g_aPlayerCPState
@@ -386,6 +391,7 @@ new g_pCvarEndingTime
 new Float:g_pCvarEngineVolume
 new Float:g_pCvarItemboxRespawnTime
 new Float:g_pCvarGloveLifeTime
+new g_pCvarNvaultDays
 
 new g_msgHideWeapon
 new g_msgScoreInfo
@@ -396,6 +402,7 @@ new g_iSpectatorAcceptMenu
 
 new g_sprSnowballGib
 
+new g_nvKart = INVALID_HANDLE
 new g_fwForwards[ForwardIndex]
 new g_iDummy
 
@@ -622,16 +629,35 @@ public plugin_init()
 	bind_pcvar_float(register_cvar("kart_engine_volume", "0.6"), g_pCvarEngineVolume)
 	bind_pcvar_float(register_cvar("kart_itembox_respawn_time", "3.0"), g_pCvarItemboxRespawnTime)
 	bind_pcvar_float(register_cvar("kart_glove_life_time", "6.0"), g_pCvarGloveLifeTime)
+	bind_pcvar_num(register_cvar("kart_nvault_days", "60"), g_pCvarNvaultDays)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
 
+	arrayset(g_iPlayerSelectedChar, -1, sizeof g_iPlayerSelectedChar)
+
 	set_game_state(GS_PREPARING)
+}
+
+public plugin_cfg()
+{
+	if (g_pCvarNvaultDays > 0)
+	{
+		g_nvKart = nvault_open("next21_kart")
+
+		if (g_nvKart != INVALID_HANDLE)
+			nvault_prune(g_nvKart, 0, get_systime() - (SECONDS_IN_DAY * g_pCvarNvaultDays))
+		else
+			log_error(AMX_ERR_NOTFOUND, "[%s] error opening kart nVault!", PLUGIN)
+	}
 }
 
 public plugin_end()
 {
 	set_cvar_num("sys_ticrate", g_iOriginalSysTicrate)
+
+	if (g_nvKart != INVALID_HANDLE)
+		nvault_close(g_nvKart)
 }
 
 public client_putinserver(iPlayer)
@@ -641,9 +667,15 @@ public client_putinserver(iPlayer)
 
 public client_disconnected(iPlayer)
 {
+	g_iPlayerSelectedChar[iPlayer] = -1
 	clear_player_data(iPlayer)
 	set_player_game_state(iPlayer, PGS_DISCONNECTED)
 	check_stop_game()
+}
+
+public client_authorized(iPlayer)
+{
+	load_nvault_kart(iPlayer)
 }
 
 clear_player_data(iPlayer)
@@ -1279,6 +1311,10 @@ public handler_char_menu(iPlayer, iMenu, iItem)
 		{
 			client_cmd(iPlayer, "spk ^"%s^"", SOUND_SYS_SELECT)
 			ready_player(iPlayer)
+
+			g_iPlayerSelectedChar[iPlayer] = get_car_char(iCarEnt)
+			g_iPlayerSelectedColor[iPlayer] = get_entvar(iCarEnt, var_colormap)
+			save_nvault_kart(iPlayer)
 		}
 	}
 
@@ -2206,8 +2242,14 @@ create_car(iOwner)
 	if (is_nullent(iCarEnt))
 		return 0
 
-	new iChar = random(CHAR_NUM)
-	new iColor = SELECT_CHAR_COLOR_STEP * random(256 / SELECT_CHAR_COLOR_STEP)
+	new iChar = g_iPlayerSelectedChar[iOwner]
+	new iColor = g_iPlayerSelectedColor[iOwner]
+
+	if (iChar == -1)
+	{
+		iChar = random(CHAR_NUM)
+		iColor = SELECT_CHAR_COLOR_STEP * random(256 / SELECT_CHAR_COLOR_STEP)
+	}
 
 	set_car_char(iCarEnt, iChar)
 	set_entvar(iCarEnt, var_colormap, iColor)
@@ -4016,6 +4058,53 @@ reverse_ent(iEnt, Float:vPivot[3])
 
 	set_entvar(iEnt, var_origin, vOrigin)
 	set_entvar(iEnt, var_angles, vAngles)
+}
+
+load_nvault_kart(iPlayer)
+{
+	if (g_nvKart == INVALID_HANDLE)
+		return
+
+	new szKey[24], szValue[16], iValue
+	get_user_authid(iPlayer, szKey, charsmax(szKey))
+	nvault_get(g_nvKart, szKey, szValue, charsmax(szValue))
+
+	if (!szValue[0])
+		return
+
+	nvault_touch(g_nvKart, szKey)
+
+	new szChar[16]
+	copy(szChar, charsmax(szChar), szValue)
+	iValue = str_to_num(szChar)
+
+	new iChar = iValue & 0xff
+	new iColor = (iValue >> 8) & 0xff
+
+	g_iPlayerSelectedChar[iPlayer] = iChar
+	g_iPlayerSelectedColor[iPlayer] = iColor
+
+	new iCarEnt = g_iCarsEnt[iPlayer]
+	if (iCarEnt)
+	{
+		set_car_char(iCarEnt, iChar)
+		set_entvar(iCarEnt, var_colormap, iColor)
+	}
+}
+
+save_nvault_kart(iPlayer)
+{
+	if (g_nvKart == INVALID_HANDLE)
+		return
+
+	new szKey[24], iValue
+	get_user_authid(iPlayer, szKey, charsmax(szKey))
+
+	new iChar = g_iPlayerSelectedChar[iPlayer]
+	new iColor = g_iPlayerSelectedColor[iPlayer]
+
+	iValue = (iChar & 0xff) | ((iColor & 0xff) << 8)
+	nvault_set(g_nvKart, szKey, fmt("%d", iValue))
 }
 
 bool:is_hull_vacant(Float:vOrigin[3], iHullType, iEnt)
