@@ -22,6 +22,19 @@ new const MODEL_KART_PACKS[][] = {
 	"models/next21_kart/kart_pack06_a01.mdl"
 }
 
+new const SOUND_HORNS[][] = {
+	"next21_kart/horn_a01.wav",
+	"next21_kart/horn02.wav",
+	"next21_kart/horn03.wav",
+	"next21_kart/horn04.wav",
+	"next21_kart/horn05.wav",
+	"next21_kart/horn06.wav",
+	"next21_kart/horn07.wav",
+	"next21_kart/horn08.wav",
+	"next21_kart/horn09.wav",
+	"next21_kart/horn10.wav"
+}
+
 new const MODEL_CAMERA[] = "models/rpgrocket.mdl"
 new const MODEL_ITEMBOX[] = "models/next21_kart/itembox_a01.mdl"
 new const MODEL_UI[] = "models/next21_kart/ui_a12.mdl"
@@ -52,7 +65,6 @@ new const SOUND_ENGINE[] = "next21_kart/engine_a02.wav"
 new const SOUND_JUMP[] = "next21_kart/jump_a01.wav"
 new const SOUND_LAND[] = "next21_kart/land_a02.wav"
 new const SOUND_ITEMBOX[] = "next21_kart/itembox_a03.wav"
-new const SOUND_HORN[] = "next21_kart/horn_a01.wav"
 
 new const SOUNDS_SKIDING[][] = {
 	"next21_kart/skid01_a01.wav",
@@ -105,7 +117,6 @@ new const SKYNAME[] = "drcrash2"
 #define SELECT_CHAR_CAM_HEIGHT		30.0
 #define SELECT_CHAR_ASPEED			60.0
 #define SELECT_CHAR_COLOR_STEP		5
-#define SELECT_CHAR_COLOR_BIG_STEP	15
 
 #define CAR_SIZES				Float:{ -16.0, -16.0, 0.0 }, Float:{ 16.0, 16.0, 32.0 }
 
@@ -372,6 +383,7 @@ new g_iPlayerCurrPos[MAX_PLAYERS + 1]
 
 new g_iPlayerSelectedChar[MAX_PLAYERS + 1]
 new g_iPlayerSelectedColor[MAX_PLAYERS + 1]
+new g_iPlayerSelectedHorn[MAX_PLAYERS + 1]
 
 new Array:g_aCPEnts
 
@@ -421,6 +433,9 @@ public plugin_precache()
 	for (new i; i < sizeof MODEL_KART_PACKS; i++)
 		g_iKartPackModelIndices[i] = precache_model(MODEL_KART_PACKS[i])
 
+	for (new i; i < sizeof SOUND_HORNS; i++)
+		precache_sound(SOUND_HORNS[i])
+
 	precache_model(MODEL_CAMERA)
 	precache_model(MODEL_ITEMBOX)
 	precache_model(MODEL_UI)
@@ -453,7 +468,6 @@ public plugin_precache()
 	precache_sound(SOUND_JUMP)
 	precache_sound(SOUND_LAND)
 	precache_sound(SOUND_ITEMBOX)
-	precache_sound(SOUND_HORN)
 
 	precache_sound(SOUND_COMMON_HIT)
 
@@ -668,6 +682,8 @@ public client_putinserver(iPlayer)
 public client_disconnected(iPlayer)
 {
 	g_iPlayerSelectedChar[iPlayer] = -1
+	g_iPlayerSelectedHorn[iPlayer] = 0
+
 	clear_player_data(iPlayer)
 	set_player_game_state(iPlayer, PGS_DISCONNECTED)
 	check_stop_game()
@@ -770,11 +786,17 @@ public cmd_drop(iPlayer)
 
 public fwd_PlayerFlashlight(iPlayer)
 {
-	if (g_gsGameState == GS_PLAYING && g_pgsPlayerGameState[iPlayer] == PGS_INGAME)
+	if (g_iCarsEnt[iPlayer])
 	{
-		if (g_iCarsEnt[iPlayer])
-			emit_sound(g_iCarsEnt[iPlayer], CHAN_ITEM, SOUND_HORN, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
+		new iHorn = g_iPlayerSelectedHorn[iPlayer]
+		new PlayerGameState:pgsPlayerGameState = g_pgsPlayerGameState[iPlayer]
+
+		if (pgsPlayerGameState == PGS_INGAME)
+			emit_sound(g_iCarsEnt[iPlayer], CHAN_ITEM, SOUND_HORNS[iHorn], VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
+		else if (pgsPlayerGameState == PGS_PREPARING)
+			rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_ITEM, SOUND_HORNS[iHorn])
 	}
+
 	return PLUGIN_HANDLED
 }
 
@@ -1234,13 +1256,13 @@ show_char_menu(iPlayer)
 	formatex(szBuffer, charsmax(szBuffer), "%L^n", iPlayer, "KART_CHAR_MENU_PREV")
 	menu_item_setname(g_iCharMenu, 1, szBuffer)
 
-	formatex(szBuffer, charsmax(szBuffer), "%L", iPlayer, "KART_CHAR_MENU_COLOR")
+	formatex(szBuffer, charsmax(szBuffer), "%L", iPlayer, "KART_CHAR_MENU_COLOR2")
 	menu_item_setname(g_iCharMenu, 2, szBuffer)
 
-	formatex(szBuffer, charsmax(szBuffer), "%L", iPlayer, "KART_CHAR_MENU_COLOR2")
+	formatex(szBuffer, charsmax(szBuffer), "%L^n", iPlayer, "KART_CHAR_MENU_COLOR3")
 	menu_item_setname(g_iCharMenu, 3, szBuffer)
 
-	formatex(szBuffer, charsmax(szBuffer), "%L^n", iPlayer, "KART_CHAR_MENU_COLOR3")
+	formatex(szBuffer, charsmax(szBuffer), "%L^n", iPlayer, "KART_CHAR_MENU_HORN")
 	menu_item_setname(g_iCharMenu, 4, szBuffer)
 
 	formatex(szBuffer, charsmax(szBuffer), "%L", iPlayer, "KART_CHAR_MENU_RANDOM")
@@ -1285,19 +1307,20 @@ public handler_char_menu(iPlayer, iMenu, iItem)
 		case 2:
 		{
 			set_entvar(iCarEnt, var_colormap,
-				(get_entvar(iCarEnt, var_colormap) + SELECT_CHAR_COLOR_BIG_STEP) % 256)
+				(get_entvar(iCarEnt, var_colormap) + SELECT_CHAR_COLOR_STEP) % 256)
 			show_char_menu(iPlayer)
 		}
 		case 3:
 		{
 			set_entvar(iCarEnt, var_colormap,
-				(get_entvar(iCarEnt, var_colormap) + SELECT_CHAR_COLOR_STEP) % 256)
+				(get_entvar(iCarEnt, var_colormap) - SELECT_CHAR_COLOR_STEP) % 256)
 			show_char_menu(iPlayer)
 		}
 		case 4:
 		{
-			set_entvar(iCarEnt, var_colormap,
-				(get_entvar(iCarEnt, var_colormap) - SELECT_CHAR_COLOR_STEP) % 256)
+			new iHorn = (g_iPlayerSelectedHorn[iPlayer] + 1) % sizeof SOUND_HORNS
+			rh_emit_sound2(iCarEnt, iPlayer, CHAN_ITEM, SOUND_HORNS[iHorn])
+			g_iPlayerSelectedHorn[iPlayer] = iHorn
 			show_char_menu(iPlayer)
 		}
 		case 5:
@@ -4065,7 +4088,7 @@ load_nvault_kart(iPlayer)
 	if (g_nvKart == INVALID_HANDLE)
 		return
 
-	new szKey[24], szValue[16], iValue
+	new szKey[24], szValue[32]
 	get_user_authid(iPlayer, szKey, charsmax(szKey))
 	nvault_get(g_nvKart, szKey, szValue, charsmax(szValue))
 
@@ -4074,15 +4097,17 @@ load_nvault_kart(iPlayer)
 
 	nvault_touch(g_nvKart, szKey)
 
-	new szChar[16]
-	copy(szChar, charsmax(szChar), szValue)
-	iValue = str_to_num(szChar)
+	new szColorChar[16], szHorn[4]
+	split(szValue, szColorChar, charsmax(szColorChar), szHorn, charsmax(szHorn), " ")
 
-	new iChar = iValue & 0xff
-	new iColor = (iValue >> 8) & 0xff
+	new iColorChar = str_to_num(szColorChar)
+	new iChar = iColorChar & 0xff
+	new iColor = (iColorChar >> 8) & 0xff
+	new iHorn = str_to_num(szHorn)
 
 	g_iPlayerSelectedChar[iPlayer] = iChar
 	g_iPlayerSelectedColor[iPlayer] = iColor
+	g_iPlayerSelectedHorn[iPlayer] = iHorn
 
 	new iCarEnt = g_iCarsEnt[iPlayer]
 	if (iCarEnt)
@@ -4097,14 +4122,15 @@ save_nvault_kart(iPlayer)
 	if (g_nvKart == INVALID_HANDLE)
 		return
 
-	new szKey[24], iValue
+	new szKey[24]
 	get_user_authid(iPlayer, szKey, charsmax(szKey))
 
 	new iChar = g_iPlayerSelectedChar[iPlayer]
 	new iColor = g_iPlayerSelectedColor[iPlayer]
+	new iHorn = g_iPlayerSelectedHorn[iPlayer]
 
-	iValue = (iChar & 0xff) | ((iColor & 0xff) << 8)
-	nvault_set(g_nvKart, szKey, fmt("%d", iValue))
+	new iColorChar = (iChar & 0xff) | ((iColor & 0xff) << 8)
+	nvault_set(g_nvKart, szKey, fmt("%d %d", iColorChar, iHorn))
 }
 
 bool:is_hull_vacant(Float:vOrigin[3], iHullType, iEnt)
