@@ -2218,6 +2218,31 @@ public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
 
 	if (iToucherImpulse == IMPULSE_CAR || iToucherImpulse == IMPULSE_SNOWBALL)
 	{
+		if (iToucherImpulse == IMPULSE_CAR)
+		{
+			new iPlayer = get_entvar(iToucher, var_owner)
+
+			new iTargetPassedCP = get_entvar(iEnterPortalEnt, var_portal_passedcp)
+			new iNeedPassedCP = iTargetPassedCP - g_iPlayerPassedCP[iPlayer]
+
+			// Ignore portals from players behind
+			if (iNeedPassedCP < 0)
+				return HC_CONTINUE
+
+			iNeedPassedCP = iNeedPassedCP % ArraySize(g_aCPEnts)
+			while (iNeedPassedCP > 0)
+			{
+				touch_checkpoint(g_iPlayerNextCP[iPlayer], iToucher)
+				iNeedPassedCP--
+			}
+
+			client_cmd(iPlayer, "spk ^"%s^"", SOUND_PORTAL_TELEPORT)
+		}
+		else
+		{
+			emit_sound(iToucher, CHAN_AUTO, SOUND_PORTAL_TELEPORT, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
+		}
+
 		new iExitPortalEnt = get_entvar(iEnterPortalEnt, var_portal_pair)
 
 		new Float:vOrigin[3], Float:vAngles[3]
@@ -2234,26 +2259,6 @@ public fwd_EnterPortalTouch(iEnterPortalEnt, iToucher)
 		set_entvar(iToucher, var_origin, vOrigin)
 		set_entvar(iToucher, var_angles, vAngles)
 		set_entvar(iToucher, var_velocity, vVelocity)
-
-		if (iToucherImpulse == IMPULSE_CAR)
-		{
-			new iPlayer = get_entvar(iToucher, var_owner)
-
-			new iTargetPassedCP = get_entvar(iEnterPortalEnt, var_portal_passedcp)
-			new iNeedPassedCP = iTargetPassedCP - g_iPlayerPassedCP[iPlayer]
-
-			while (iNeedPassedCP > 0)
-			{
-				touch_checkpoint(g_iPlayerNextCP[iPlayer], iToucher)
-				iNeedPassedCP--
-			}
-
-			client_cmd(iPlayer, "spk ^"%s^"", SOUND_PORTAL_TELEPORT)
-		}
-		else
-		{
-			emit_sound(iToucher, CHAN_AUTO, SOUND_PORTAL_TELEPORT, VOL_NORM, ATTN_NORM, 0, PITCH_NORM)
-		}
 	}
 
 	return HC_CONTINUE
