@@ -3673,7 +3673,7 @@ touch_booster_zone(iEnt, iToucher)
 	if (!iPlayer)
 		return HAM_IGNORED
 
-	new BoosterType:iBoosterType = BoosterType:get_entvar(iEnt, var_body)
+	new BoosterType:iBoosterType = BoosterType:get_entvar(iEnt, var_boostertype)
 	new Float:fPower = Float:get_entvar(iEnt, var_scale)
 
 	if (iBoosterType == BT_SURFACE || fPower < 1.0)
