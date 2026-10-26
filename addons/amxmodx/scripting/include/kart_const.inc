@@ -3,6 +3,12 @@
 #endif
 #define _kartconst_included
 
+enum KartGameMode
+{
+	KGM_RACE,
+	KGM_TRIALCOURSE
+}
+
 enum GameState
 {
 	GS_PREPARING,

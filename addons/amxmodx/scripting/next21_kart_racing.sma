@@ -385,6 +385,10 @@ new g_iPlayerSelectedChar[MAX_PLAYERS + 1]
 new g_iPlayerSelectedColor[MAX_PLAYERS + 1]
 new g_iPlayerSelectedHorn[MAX_PLAYERS + 1]
 
+new Float:g_fPlayerStartTime[MAX_PLAYERS + 1]
+new bool:g_bPlayerFinished[MAX_PLAYERS + 1]
+new Float:g_fPlayerBestTime[MAX_PLAYERS + 1]
+
 new Array:g_aCPEnts
 
 new Array:g_aPlayerCPState
@@ -405,11 +409,7 @@ new Float:g_pCvarEngineVolume
 new Float:g_pCvarItemboxRespawnTime
 new Float:g_pCvarGloveLifeTime
 new g_pCvarNvaultDays
-new g_pCvarGameMode
-new g_pCvarHideUI
-new Float:g_fPlayerStartTime[MAX_PLAYERS + 1]
-new bool:g_bPlayerFinished[MAX_PLAYERS + 1]
-new Float:g_fPlayerBestTime[MAX_PLAYERS + 1]
+new KartGameMode:g_pCvarGameMode
 
 new g_msgHideWeapon
 new g_msgScoreInfo
@@ -651,7 +651,6 @@ public plugin_init()
 	bind_pcvar_float(register_cvar("kart_glove_life_time", "6.0"), g_pCvarGloveLifeTime)
 	bind_pcvar_num(register_cvar("kart_nvault_days", "60"), g_pCvarNvaultDays)
 	bind_pcvar_num(register_cvar("kart_game_mode", "0"), g_pCvarGameMode)
-	bind_pcvar_num(register_cvar("kart_hide_ui", "0"), g_pCvarHideUI)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
@@ -663,11 +662,6 @@ public plugin_init()
 
 public plugin_cfg()
 {
-	apply_checkpoints(false)
-
-	if (g_pCvarGameMode == 1)
-		set_game_state(GS_PLAYING)
-
 	if (g_pCvarNvaultDays > 0)
 	{
 		g_nvKart = nvault_open("next21_kart")
@@ -685,6 +679,14 @@ public plugin_end()
 
 	if (g_nvKart != INVALID_HANDLE)
 		nvault_close(g_nvKart)
+}
+
+public OnConfigsExecuted()
+{
+	apply_checkpoints(false)
+
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
+		set_game_state(GS_PLAYING)
 }
 
 public client_putinserver(iPlayer)
@@ -821,7 +823,9 @@ public start_game()
 	for (new iPlayer = 1; iPlayer <= MAX_PLAYERS; iPlayer++)
 		start_player(iPlayer)
 
-	if (g_pCvarGameMode == 1)
+	remove_task(TASK_STARTING)
+
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 	{
 		set_game_state(GS_PLAYING)
 		g_fStartTime = get_gametime()
@@ -835,27 +839,29 @@ public start_game()
 				g_iPlayerCurrLap[iPlayer] = -1
 				g_iPlayerPassedCP[iPlayer] = 0
 				g_fPlayerStartTime[iPlayer] = 0.0
+
 				if (g_iCarsEnt[iPlayer])
 					rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .pitch=80)
 
 				if (g_iUIEnt[iPlayer])
-					set_entvar(g_iUIEnt[iPlayer], var_effects, g_pCvarHideUI ? EF_NODRAW : EF_OWNER_VISIBILITY)
+					set_entvar(g_iUIEnt[iPlayer], var_effects, EF_NODRAW)
 			}
 		}
 
 		update_pos_list()
-		return
 	}
+	else
+	{
+		set_game_state(GS_STARTING)
 
-	set_game_state(GS_STARTING)
-	new iParams[1]
-	iParams[0] = STARTING_TIME + 1
-	remove_task(TASK_STARTING)
-	set_task(1.0, "task_starting", TASK_STARTING, iParams, 1)
+		new iParams[1]
+		iParams[0] = STARTING_TIME + 1
+		set_task(1.0, "task_starting", TASK_STARTING, iParams, 1)
 
-	g_szPosList[0] = 0
-	g_iPosListStart = 0
-	g_iFinPlayersNum = 0
+		g_szPosList[0] = 0
+		g_iPosListStart = 0
+		g_iFinPlayersNum = 0
+	}
 
 	new iBlowFishEnt
 	while ((iBlowFishEnt = rg_find_ent_by_class(iBlowFishEnt, CLASSNAME_BLOWFISH)))
@@ -929,7 +935,7 @@ apply_checkpoints(bool:bReverse)
 	ArrayGetArray(g_aCPEnts, 0, eCPEnts)
 	g_iStartCP = eCPEnts[CPENT_CP]
 
-	if (g_pCvarGameMode == 1)
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 	{
 		ArrayGetArray(g_aCPEnts, iCheckPointsNum - 1, eCPEnts)
 		g_iFinishCP = eCPEnts[CPENT_CP]
@@ -1039,7 +1045,7 @@ update_prepare_origins()
 
 public task_starting(iParams[], iTaskId)
 {
-	if (g_pCvarGameMode == 1)
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 	{
 		remove_task(TASK_STARTING)
 		set_game_state(GS_PLAYING)
@@ -1066,7 +1072,7 @@ public task_starting(iParams[], iTaskId)
 				rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .pitch=80)
 
 				if (g_iUIEnt[iPlayer])
-					set_entvar(g_iUIEnt[iPlayer], var_effects, g_pCvarHideUI ? EF_NODRAW : EF_OWNER_VISIBILITY)
+					set_entvar(g_iUIEnt[iPlayer], var_effects, EF_OWNER_VISIBILITY)
 			}
 		}
 
@@ -1246,52 +1252,35 @@ ready_player(iPlayer)
 	reset_player_car_vars(iPlayer)
 	reset_player_car_chill(iPlayer, iCarEnt)
 
-	new iUIEnt = g_iUIEnt[iPlayer]
-
-	if (g_pCvarGameMode == 1)
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 	{
 		if (g_gsGameState != GS_PLAYING)
 			set_game_state(GS_PLAYING)
 
-		if (g_bPlayerFinished[iPlayer])
+		start_player(iPlayer)
+
+		if (!g_bPlayerFinished[iPlayer])
 		{
-			start_player(iPlayer)
-			return
+			g_iPlayerPrevCPId[iPlayer] = -1
+			g_iPlayerNextCP[iPlayer] = g_iStartCP
+			g_iPlayerCurrLap[iPlayer] = -1
+			g_iPlayerPassedCP[iPlayer] = 0
+			g_fPlayerStartTime[iPlayer] = 0.0
 		}
 
-		start_player(iPlayer)
-		g_iPlayerPrevCPId[iPlayer] = -1
-		g_iPlayerNextCP[iPlayer] = g_iStartCP
-		g_iPlayerCurrLap[iPlayer] = -1
-		g_iPlayerPassedCP[iPlayer] = 0
-		g_fPlayerStartTime[iPlayer] = 0.0
 		rh_emit_sound2(iCarEnt, iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .pitch=80)
-
-		if (iUIEnt)
-			set_entvar(iUIEnt, var_effects, g_pCvarHideUI ? EF_NODRAW : EF_OWNER_VISIBILITY)
-	}
-	else if (g_gsGameState == GS_PLAYING)
-	{
-		start_player(iPlayer)
-		g_iPlayerPrevCPId[iPlayer] = -1
-		g_iPlayerNextCP[iPlayer] = g_iStartCP
-		g_iPlayerCurrLap[iPlayer] = -1
-		g_iPlayerPassedCP[iPlayer] = 0
-		rh_emit_sound2(iCarEnt, iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .pitch=80)
-
-		if (iUIEnt)
-			set_entvar(iUIEnt, var_effects, g_pCvarHideUI ? EF_NODRAW : EF_OWNER_VISIBILITY)
 	}
 	else
 	{
 		set_car_waiting(iCarEnt)
+	}
 
-		if (iUIEnt)
-		{
-			set_entvar(iUIEnt, var_effects, EF_NODRAW)
-			set_entvar(iUIEnt, var_body, 0)
-			set_entvar(iUIEnt, var_skin, 0)
-		}
+	new iUIEnt = g_iUIEnt[iPlayer]
+	if (iUIEnt)
+	{
+		set_entvar(iUIEnt, var_effects, EF_NODRAW)
+		set_entvar(iUIEnt, var_body, 0)
+		set_entvar(iUIEnt, var_skin, 0)
 	}
 
 	if (task_exists(TASK_WAITPLAYERS))
@@ -1327,7 +1316,7 @@ start_player(iPlayer)
 	g_iPlayerCurrSpawn[iPlayer] = 0
 	g_fLastResetPressed[iPlayer] = -1.0
 	g_iPlayerCurrPos[iPlayer] = 0
-	g_fPlayerStartTime[iPlayer] = g_pCvarGameMode == 1 ? 0.0 : get_gametime()
+	g_fPlayerStartTime[iPlayer] = g_pCvarGameMode == KGM_TRIALCOURSE ? 0.0 : get_gametime()
 }
 
 create_char_menu()
@@ -2468,7 +2457,7 @@ reset_car(iCarEnt, iPlayer)
 
 	if (g_bPlayerFinished[iPlayer])
 	{
-		if (g_pCvarGameMode != 1)
+		if (g_pCvarGameMode != KGM_TRIALCOURSE)
 		{
 			set_car_waiting(iCarEnt)
 			return
@@ -2650,7 +2639,7 @@ public update_pos_list()
 
 	ArrayClear(g_aPlayerCPState)
 
-	if (g_pCvarGameMode == 1)
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 	{
 		static iFinPlayers[MAX_PLAYERS]
 		static Float:fFinTimes[MAX_PLAYERS]
@@ -2814,15 +2803,6 @@ show_hud_pos(iPlayer)
 		return
 	fLastHUDUpdate[iPlayer] = fGameTime + 0.5
 
-	if (g_iUIEnt[iPlayer] && g_pgsPlayerGameState[iPlayer] == PGS_INGAME)
-	{
-		new iEffects = get_entvar(g_iUIEnt[iPlayer], var_effects)
-		if (g_pCvarHideUI && !(iEffects & EF_NODRAW))
-			set_entvar(g_iUIEnt[iPlayer], var_effects, EF_NODRAW)
-		else if (!g_pCvarHideUI && (iEffects & EF_NODRAW))
-			set_entvar(g_iUIEnt[iPlayer], var_effects, EF_OWNER_VISIBILITY)
-	}
-
 	if (g_szPosList[0])
 	{
 		set_hudmessage(255, 255, 255, -0.05, 0.3, 0, 0.0, 0.6, 0.0, 0.0, HUD_CHAN_POS)
@@ -2851,7 +2831,7 @@ show_hud_spectator(iPlayer)
 
 public check_ready_players()
 {
-	if (g_pCvarGameMode == 1)
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 		return
 
 	new iReadyPlayersNum
@@ -3804,7 +3784,7 @@ touch_checkpoint(iEnt, iToucher)
 	ArrayGetArray(g_aCPEnts, (iCPId + 1) % iCheckPointsNum, eCPEnts)
 	iNextCP = eCPEnts[CPENT_CP]
 
-	if (g_pCvarGameMode == 1)
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 	{
 		ArrayGetArray(g_aCPEnts, iCheckPointsNum - 1, eCPEnts)
 		g_iFinishCP = eCPEnts[CPENT_CP]
