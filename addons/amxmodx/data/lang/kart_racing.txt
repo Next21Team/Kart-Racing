@@ -20,6 +20,12 @@ KART_SA_MENU_TITLE = Go to observation?
 KART_SPECTATOR_FREE = FREE OBSERVATION (M)
 KART_SPECTATOR_TARGET = [%d] %n
 
+KART_TRIAL_START = ^4[Kart]^1 You started the map
+KART_TRIAL_CHECKPOINT = ^4[Kart]^1 Checkpoint %d passed (Time: %02d:%02d.%d)
+KART_TRIAL_FINISH_ALL = ^4[Kart]^1 Player ^3%n^1 finished the map! Time: %02d:%02d.%d
+KART_TRIAL_FINISH_SELF = ^4[Kart]^1 You finished the map! Your time: %02d:%02d.%d
+KART_TRIAL_ALREADY_FINISHED = ^4[Kart]^1 You have already finished!
+
 [ru]
 KART_WAITING = ОЖИДАНИЕ ИГРОКОВ
 KART_LAP = КРУГ %d
@@ -41,3 +47,9 @@ KART_SA_MENU_TITLE = Перейти в наблюдение?
 
 KART_SPECTATOR_FREE = СВОБОДНОЕ НАБЛЮДЕНИЕ (M)
 KART_SPECTATOR_TARGET = [%d] %n
+
+KART_TRIAL_START = ^4[Kart]^1 Вы начали прохождение карты
+KART_TRIAL_CHECKPOINT = ^4[Kart]^1 Чекпоинт %d пройден (Время: %02d:%02d.%d)
+KART_TRIAL_FINISH_ALL = ^4[Kart]^1 Игрок ^3%n^1 финишировал! Время: %02d:%02d.%d
+KART_TRIAL_FINISH_SELF = ^4[Kart]^1 Вы финишировали! Ваше время: %02d:%02d.%d
+KART_TRIAL_ALREADY_FINISHED = ^4[Kart]^1 Вы уже финишировали!
