@@ -1579,6 +1579,10 @@ public fwd_CarThink(iCarEnt)
 	{
 		fSpeed = xs_vec_len_2d(vVelocity)
 
+		// Fix in-place yaw rotation
+		if (fSpeed < 0.1)
+			fDir = 1.0
+
 		// Set angle startpoint for stunts calculations
 		if (fJumpForce > 0.0 && !(iButtons & BTN_JUMP))
 		{
