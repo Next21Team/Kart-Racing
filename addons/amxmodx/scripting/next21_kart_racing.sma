@@ -38,6 +38,7 @@ new const SOUND_HORNS[][] = {
 new const MODEL_CAMERA[] = "models/rpgrocket.mdl"
 new const MODEL_ITEMBOX[] = "models/next21_kart/itembox_a01.mdl"
 new const MODEL_UI[] = "models/next21_kart/ui_a12.mdl"
+new const MODEL_UI_BG[] = "models/next21_kart/ui_bg_a01.mdl"
 new const MODEL_SNOWBALL[] = "models/next21_kart/snowball_a01.mdl"
 new const MODEL_BLOWFISH[]	= "models/next21_kart/blowfish_a02.mdl"
 new const MODEL_GLOVE[] = "models/next21_kart/glove_a01.mdl"
@@ -255,6 +256,7 @@ new const TNAME_CHPATH_REVERSE[] =	"kart_chpath_reverse"
 
 #define var_cpnum				var_iuser3
 #define var_ui					var_iuser2
+#define var_ui_bg				var_iuser2
 
 #define var_missile_mode		var_iuser2
 
@@ -439,6 +441,7 @@ public plugin_precache()
 	precache_model(MODEL_CAMERA)
 	precache_model(MODEL_ITEMBOX)
 	precache_model(MODEL_UI)
+	precache_model(MODEL_UI_BG)
 
 	precache_model(MODEL_SNOWBALL)
 	g_sprSnowballGib = precache_model(MODEL_SNOWBALL_GIB)
@@ -714,6 +717,10 @@ clear_player_data(iPlayer)
 
 	if (iUIEnt)
 	{
+		new iUIBGEnt = get_entvar(iUIEnt, var_ui_bg)
+		if (iUIBGEnt)
+			engfunc(EngFunc_RemoveEntity, iUIBGEnt)
+
 		engfunc(EngFunc_RemoveEntity, iUIEnt)
 		g_iUIEnt[iPlayer] = 0
 	}
@@ -2499,9 +2506,17 @@ create_camera(iOwner)
 
 create_ui(iOwner, iCameraEnt)
 {
+	// The order in which entities are created determines the draw order
+	new iUIBGEnt = rg_create_entity(SZ_INFO_TARGET)
 	new iUIEnt = rg_create_entity(SZ_INFO_TARGET)
+
 	if (is_nullent(iUIEnt))
+	{
+		if (!is_nullent(iUIBGEnt))
+			engfunc(EngFunc_RemoveEntity, iUIBGEnt)
+
 		return 0
+	}
 
 	engfunc(EngFunc_SetModel, iUIEnt, MODEL_UI)
 
@@ -2511,11 +2526,24 @@ create_ui(iOwner, iCameraEnt)
 	set_entvar(iUIEnt, var_movetype, MOVETYPE_NOCLIP)
 	set_entvar(iUIEnt, var_effects, EF_NODRAW)
 	set_entvar(iUIEnt, var_framerate, 0.0)
+	set_entvar(iUIEnt, var_ui_bg, 0)
 
 	set_entvar(iCameraEnt, var_ui, iUIEnt)
 
 	engfunc(EngFunc_SetSize, iUIEnt, Float:{-16.0, -16.0, -16.0}, Float:{16.0, 16.0, 16.0} )
 	fm_set_rendering(iUIEnt, kRenderFxNone, 255, 255, 255, kRenderTransAdd, 255)
+
+	if (!is_nullent(iUIBGEnt))
+	{
+		engfunc(EngFunc_SetModel, iUIBGEnt, MODEL_UI_BG)
+		set_entvar(iUIBGEnt, var_solid, SOLID_NOT)
+		set_entvar(iUIBGEnt, var_movetype, MOVETYPE_FOLLOW)
+		set_entvar(iUIBGEnt, var_aiment, iUIEnt)
+
+		set_entvar(iUIEnt, var_ui_bg, iUIBGEnt)
+
+		fm_set_rendering(iUIBGEnt, kRenderFxNone, 255, 255, 255, kRenderTransAlpha, 180)
+	}
 
 	return iUIEnt
 }
