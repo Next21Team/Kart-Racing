@@ -37,6 +37,8 @@ https://www.dropbox.com/scl/fi/vhsxaphr8u1gttf07w6ig/kart_assets.zip?rlkey=7hgxl
 Гоночные трассы:
 https://www.dropbox.com/scl/fi/0bmouxi5uqwplbb7gi17c/kart_maps.zip?rlkey=hsscyz8qai8cbszb6bgy4o0kt&dl=0
 
+https://next21.ru/maps/?q=&sort=new&category=kart-racing&game=cs16
+
 ## Требования
 - [Reapi](https://github.com/s1lentq/reapi)
 
