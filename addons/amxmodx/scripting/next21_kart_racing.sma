@@ -98,8 +98,6 @@ new const SOUND_SYS_CHANGE[] = "next21_kart/system_change.wav"
 new const SOUND_SYS_SELECT[] = "next21_kart/system_select.wav"
 new const SOUND_SYS_PREVENT[] = "next21_kart/system_prevent.wav"
 
-new const SKYNAME[] = "drcrash2"
-
 #define CHAR_NUM		48
 #define CHAR_PACK_SIZE	8
 
@@ -496,13 +494,6 @@ public plugin_precache()
 	precache_sound(SOUND_SYS_SELECT)
 	precache_sound(SOUND_SYS_PREVENT)
 
-	precache_generic(fmt("gfx/env/%sbk.tga", SKYNAME))
-	precache_generic(fmt("gfx/env/%sdn.tga", SKYNAME))
-	precache_generic(fmt("gfx/env/%sft.tga", SKYNAME))
-	precache_generic(fmt("gfx/env/%slf.tga", SKYNAME))
-	precache_generic(fmt("gfx/env/%srt.tga", SKYNAME))
-	precache_generic(fmt("gfx/env/%sup.tga", SKYNAME))
-
 	g_fwForwards[FWD_ID_CREATE_CAR] = CreateMultiForward("kart_on_car_create", ET_CONTINUE, FP_CELL, FP_CELL)
 	g_fwForwards[FWD_ID_SET_GAME_STATE] = CreateMultiForward("kart_on_game_state_set", ET_CONTINUE, FP_CELL)
 	g_fwForwards[FWD_ID_PLAYER_GAME_STATE_SET] = CreateMultiForward("kart_on_player_game_state_set", ET_CONTINUE, FP_CELL, FP_CELL)
@@ -620,8 +611,6 @@ public plugin_init()
 
 	g_iOriginalSysTicrate = get_cvar_num("sys_ticrate")
 	set_cvar_num("sys_ticrate", 100)
-
-	set_cvar_string("sv_skyname", SKYNAME)
 
 	set_cvar_float("mp_roundtime", 0.0)
 	set_cvar_num("mp_round_infinite", 1)
