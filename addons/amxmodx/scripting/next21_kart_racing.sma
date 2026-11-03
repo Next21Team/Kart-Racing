@@ -226,6 +226,8 @@ new const SKYNAME[] = "drcrash2"
 #define BTN_BACKCAMERA			IN_ATTACK2
 #define BTN_RESET				IN_RELOAD
 
+new const CHAT_TAG[] =				"^4[Kart]^1 "
+
 new const CLASSNAME_CAMERA[] =		"kr_camera"
 new const CLASSNAME_CAR[] =			"kr_car"
 new const CLASSNAME_UI[] =			"kr_ui"
@@ -422,7 +424,6 @@ new g_sprSnowballGib
 
 new g_nvKart = INVALID_HANDLE
 new g_fwForwards[ForwardIndex]
-new g_iDummy
 
 
 public plugin_natives()
@@ -890,7 +891,7 @@ public start_game()
 
 set_game_state(GameState:gameState)
 {
-	ExecuteForward(g_fwForwards[FWD_ID_SET_GAME_STATE], g_iDummy, gameState)
+	ExecuteForward(g_fwForwards[FWD_ID_SET_GAME_STATE], _, gameState)
 
 	remove_task(TASK_UPDATEPOS)
 	remove_task(TASK_WAITPLAYERS)
@@ -905,7 +906,7 @@ set_game_state(GameState:gameState)
 
 set_player_game_state(iPlayer, PlayerGameState:playerGameState)
 {
-	ExecuteForward(g_fwForwards[FWD_ID_PLAYER_GAME_STATE_SET], g_iDummy, iPlayer, playerGameState)
+	ExecuteForward(g_fwForwards[FWD_ID_PLAYER_GAME_STATE_SET], _, iPlayer, playerGameState)
 
 	g_pgsPlayerGameState[iPlayer] = playerGameState
 }
@@ -2388,7 +2389,7 @@ create_car(iOwner)
 
 	// set_entvar(iCarEnt, var_gravity, GRAVITY)
 
-	ExecuteForward(g_fwForwards[FWD_ID_CREATE_CAR], g_iDummy, iOwner, iCarEnt)
+	ExecuteForward(g_fwForwards[FWD_ID_CREATE_CAR], _, iOwner, iCarEnt)
 
 	return iCarEnt
 }
@@ -3760,7 +3761,15 @@ touch_checkpoint(iEnt, iToucher)
 	if (g_bPlayerFinished[iPlayer])
 	{
 		if (iEnt == g_iStartCP)
-			client_print_color(iPlayer, iPlayer, "%L", iPlayer, "KART_TRIAL_ALREADY_FINISHED")
+		{
+			static Float:fPrintDelay[MAX_PLAYERS + 1]
+			new Float:fGameTime = get_gametime()
+			if (fPrintDelay[iPlayer] < fGameTime)
+			{
+				client_print(iPlayer, print_center, "%L", iPlayer, "KART_TRIAL_ALREADY_FINISHED")
+				fPrintDelay[iPlayer] = fGameTime + 1.0
+			}
+		}
 		return HAM_IGNORED
 	}
 
@@ -3792,28 +3801,20 @@ touch_checkpoint(iEnt, iToucher)
 		// Start line (first checkpoint - checkpoint1)
 		if (iEnt == g_iStartCP)
 		{
-			if (g_bPlayerFinished[iPlayer])
-			{
-				client_print_color(iPlayer, iPlayer, "%L", iPlayer, "KART_TRIAL_ALREADY_FINISHED")
-				return HAM_IGNORED
-			}
-
 			g_iPlayerCurrLap[iPlayer] = 0
 			g_fPlayerStartTime[iPlayer] = get_gametime()
-			client_print_color(iPlayer, iPlayer, "%L", iPlayer, "KART_TRIAL_START")
+			client_print_color(iPlayer, iPlayer, "%s%L", CHAT_TAG, iPlayer, "KART_TRIAL_START")
 
 			g_iPlayerPrevCPId[iPlayer] = iCPId
 			g_iPlayerNextCP[iPlayer] = iNextCP
 			g_iPlayerPassedCP[iPlayer]++
+
 			return HAM_IGNORED
 		}
 
 		// Finish line (last checkpoint - checkpointN)
 		if (iEnt == g_iFinishCP)
 		{
-			if (g_bPlayerFinished[iPlayer])
-				return HAM_IGNORED
-
 			g_bPlayerFinished[iPlayer] = true
 			g_iPlayerNextCP[iPlayer] = -1
 
@@ -3836,9 +3837,9 @@ touch_checkpoint(iEnt, iToucher)
 					continue
 
 				if (i == iPlayer)
-					client_print_color(i, i, "%L", i, "KART_TRIAL_FINISH_SELF", iMins, iSeconds, iMSecond)
+					client_print_color(i, i, "%s%L", CHAT_TAG, i, "KART_TRIAL_FINISH_SELF", iMins, iSeconds, iMSecond)
 				else
-					client_print_color(i, iPlayer, "%L", i, "KART_TRIAL_FINISH_ALL", iPlayer, iMins, iSeconds, iMSecond)
+					client_print_color(i, iPlayer, "%s%L", CHAT_TAG, i, "KART_TRIAL_FINISH_ALL", iPlayer, iMins, iSeconds, iMSecond)
 			}
 
 			new Float:fPlayerFrags = get_entvar(iPlayer, var_frags) + 1.0
@@ -3859,7 +3860,7 @@ touch_checkpoint(iEnt, iToucher)
 
 			update_pos_list()
 
-			ExecuteForward(g_fwForwards[FWD_ID_PLAYER_LAP_PASS], g_iDummy, iPlayer, 1, true)
+			ExecuteForward(g_fwForwards[FWD_ID_PLAYER_LAP_PASS], _, iPlayer, 1, true)
 			return HAM_IGNORED
 		}
 
@@ -3871,11 +3872,12 @@ touch_checkpoint(iEnt, iToucher)
 		iMins = iMSecond / 10 / 60
 		iMSecond %= 10
 
-		client_print_color(iPlayer, iPlayer, "%L", iPlayer, "KART_TRIAL_CHECKPOINT", iCPId, iMins, iSeconds, iMSecond)
+		client_print_color(iPlayer, iPlayer, "%s%L", CHAT_TAG, iPlayer, "KART_TRIAL_CHECKPOINT", iCPId, iMins, iSeconds, iMSecond)
 
 		g_iPlayerPrevCPId[iPlayer] = iCPId
 		g_iPlayerNextCP[iPlayer] = iNextCP
 		g_iPlayerPassedCP[iPlayer]++
+
 		return HAM_IGNORED
 	}
 
@@ -3956,7 +3958,7 @@ touch_checkpoint(iEnt, iToucher)
 			}
 		}
 
-		ExecuteForward(g_fwForwards[FWD_ID_PLAYER_LAP_PASS], g_iDummy, iPlayer, iCurrLap, iCurrLap >= g_pCvarLapsNum)
+		ExecuteForward(g_fwForwards[FWD_ID_PLAYER_LAP_PASS], _, iPlayer, iCurrLap, iCurrLap >= g_pCvarLapsNum)
 	}
 
 	g_iPlayerPrevCPId[iPlayer] = iCPId
