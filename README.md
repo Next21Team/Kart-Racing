@@ -29,6 +29,7 @@ In addition to the default buttons for moving the car along the highway, the fol
 - ```kart_itembox_respawn_time "3.0"``` Time (seconds) until a new item box appears after it has been collected.
 - ```kart_glove_life_time "6.0"``` Duration (seconds) of the glove item effect.
 - ```kart_nvault_days "60"``` How many days to keep selected characters in nVault storage for inactive players. 0 - do not save characters.
+- ```kart_game_mode "0"``` Game mode. 0 - standard race, 1 - free-run time trial
 
 ## Assets
 Assets for the mod:
