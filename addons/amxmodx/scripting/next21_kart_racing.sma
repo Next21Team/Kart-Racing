@@ -596,6 +596,7 @@ public plugin_init()
 
 	register_impulse(100, "fwd_PlayerFlashlight")
 
+	RegisterHookChain(RG_CSGameRules_CheckWinConditions, "fwd_CheckWinConditions_Post", true)
 	RegisterHookChain(RG_CBasePlayer_Spawn, "fwd_PlayerSpawn_Post", true)
 	RegisterHookChain(RG_CBasePlayer_PreThink, "fwd_PlayerPreThink_Pre")
 	RegisterHam(Ham_Touch, "trigger_multiple", "fwd_TouchMultiple_Pre")
@@ -3533,6 +3534,11 @@ public fwd_ItemboxThink(iItemBox)
 	set_entvar(iItemBox, var_solid, SOLID_TRIGGER)
 	set_entvar(iItemBox, var_effects, 0)
 	set_entvar(iItemBox, var_nextthink, -1.0)
+}
+
+public fwd_CheckWinConditions_Post()
+{
+	set_member_game(m_bMapHasBuyZone, true)
 }
 
 public fwd_PlayerSpawn_Post(iPlayer)
