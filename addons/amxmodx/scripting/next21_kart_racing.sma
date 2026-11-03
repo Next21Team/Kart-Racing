@@ -642,6 +642,9 @@ public plugin_init()
 	new pCvarStartMinPlayers = register_cvar("kart_start_min_players", "2")
 	set_pcvar_bounds(pCvarStartMinPlayers, CvarBound_Lower, true, 1.0)
 
+	new pCvarGameMode = register_cvar("kart_game_mode", "0")
+	hook_cvar_change(pCvarGameMode, "hook_change_game_mode")
+
 	bind_pcvar_num(register_cvar("kart_laps_num", "3"), g_pCvarLapsNum)
 	bind_pcvar_num(register_cvar("kart_reverse_available", "0"), g_pCvarReverseAvailable)
 	bind_pcvar_num(pCvarStartWaitingTime, g_pCvarStartWaitingTime)
@@ -651,7 +654,7 @@ public plugin_init()
 	bind_pcvar_float(register_cvar("kart_itembox_respawn_time", "3.0"), g_pCvarItemboxRespawnTime)
 	bind_pcvar_float(register_cvar("kart_glove_life_time", "6.0"), g_pCvarGloveLifeTime)
 	bind_pcvar_num(register_cvar("kart_nvault_days", "60"), g_pCvarNvaultDays)
-	bind_pcvar_num(register_cvar("kart_game_mode", "0"), g_pCvarGameMode)
+	bind_pcvar_num(pCvarGameMode, g_pCvarGameMode)
 
 	register_dictionary("kart_racing.txt")
 	register_dictionary("common.txt")
@@ -680,14 +683,6 @@ public plugin_end()
 
 	if (g_nvKart != INVALID_HANDLE)
 		nvault_close(g_nvKart)
-}
-
-public OnConfigsExecuted()
-{
-	apply_checkpoints(false)
-
-	if (g_pCvarGameMode == KGM_TRIALCOURSE)
-		set_game_state(GS_PLAYING)
 }
 
 public client_putinserver(iPlayer)
@@ -835,11 +830,7 @@ public start_game()
 		{
 			if (g_pgsPlayerGameState[iPlayer] == PGS_INGAME)
 			{
-				g_iPlayerPrevCPId[iPlayer] = -1
-				g_iPlayerNextCP[iPlayer] = g_iStartCP
-				g_iPlayerCurrLap[iPlayer] = -1
-				g_iPlayerPassedCP[iPlayer] = 0
-				g_fPlayerStartTime[iPlayer] = 0.0
+				clear_player_trial(iPlayer)
 
 				if (g_iCarsEnt[iPlayer])
 					rh_emit_sound2(g_iCarsEnt[iPlayer], iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .pitch=80)
@@ -1261,13 +1252,7 @@ ready_player(iPlayer)
 		start_player(iPlayer)
 
 		if (!g_bPlayerFinished[iPlayer])
-		{
-			g_iPlayerPrevCPId[iPlayer] = -1
-			g_iPlayerNextCP[iPlayer] = g_iStartCP
-			g_iPlayerCurrLap[iPlayer] = -1
-			g_iPlayerPassedCP[iPlayer] = 0
-			g_fPlayerStartTime[iPlayer] = 0.0
-		}
+			clear_player_trial(iPlayer)
 
 		rh_emit_sound2(iCarEnt, iPlayer, CHAN_VOICE, SOUND_ENGINE, .vol=g_pCvarEngineVolume, .pitch=80)
 	}
@@ -1318,6 +1303,15 @@ start_player(iPlayer)
 	g_fLastResetPressed[iPlayer] = -1.0
 	g_iPlayerCurrPos[iPlayer] = 0
 	g_fPlayerStartTime[iPlayer] = g_pCvarGameMode == KGM_TRIALCOURSE ? 0.0 : get_gametime()
+}
+
+clear_player_trial(iPlayer)
+{
+	g_iPlayerPrevCPId[iPlayer] = -1
+	g_iPlayerNextCP[iPlayer] = g_iStartCP
+	g_iPlayerCurrLap[iPlayer] = -1
+	g_iPlayerPassedCP[iPlayer] = 0
+	g_fPlayerStartTime[iPlayer] = 0.0
 }
 
 create_char_menu()
@@ -3795,9 +3789,6 @@ touch_checkpoint(iEnt, iToucher)
 
 	if (g_pCvarGameMode == KGM_TRIALCOURSE)
 	{
-		ArrayGetArray(g_aCPEnts, iCheckPointsNum - 1, eCPEnts)
-		g_iFinishCP = eCPEnts[CPENT_CP]
-
 		// Start line (first checkpoint - checkpoint1)
 		if (iEnt == g_iStartCP)
 		{
@@ -4351,6 +4342,51 @@ public fwd_ResetHUD(iPlayer)
 	message_begin(MSG_ONE, g_msgHideWeapon, _, iPlayer)
 	write_byte(57 | (1<<1))
 	message_end()
+}
+
+public hook_change_game_mode()
+{
+	apply_checkpoints(false)
+	remove_task(TASK_ENDING)
+
+	new iReadyPlayersNum
+	for (new iPlayer = 1; iPlayer <= MAX_PLAYERS; iPlayer++)
+	{
+		if (g_pgsPlayerGameState[iPlayer] == PGS_INGAME
+			|| g_pgsPlayerGameState[iPlayer] == PGS_READY)
+		{
+			ready_player(iPlayer)
+			iReadyPlayersNum++
+		}
+	}
+
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
+	{
+		start_game()
+
+		new iItemBox
+		while ((iItemBox = rg_find_ent_by_class(iItemBox, CLASSNAME_ITEMBOX)))
+		{
+			set_entvar(iItemBox, var_solid, SOLID_NOT)
+			set_entvar(iItemBox, var_effects, EF_NODRAW)
+			set_entvar(iItemBox, var_nextthink, -1.0)
+		}
+	}
+	else
+	{
+		if (iReadyPlayersNum > 1)
+			start_game()
+		else
+			set_game_state(GS_PREPARING)
+
+		new iItemBox
+		while ((iItemBox = rg_find_ent_by_class(iItemBox, CLASSNAME_ITEMBOX)))
+		{
+			set_entvar(iItemBox, var_solid, SOLID_TRIGGER)
+			set_entvar(iItemBox, var_effects, 0)
+			set_entvar(iItemBox, var_nextthink, -1.0)
+		}
+	}
 }
 
 public blocked(iPlayer)
