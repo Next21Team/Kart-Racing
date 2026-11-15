@@ -670,6 +670,12 @@ public plugin_cfg()
 	}
 }
 
+public OnConfigsExecuted()
+{
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
+		apply_checkpoints(false)
+}
+
 public plugin_end()
 {
 	set_cvar_num("sys_ticrate", g_iOriginalSysTicrate)
