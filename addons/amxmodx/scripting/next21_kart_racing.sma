@@ -328,6 +328,15 @@ enum _:ForwardIndex
 	FWD_ID_PLAYER_LAP_PASS
 }
 
+enum _:PlayerSessionData
+{
+	PSD_PASSED_CP,
+	bool:PSD_FINISHED,
+	PSD_FRAGS,
+	Float:PSD_START_TIME,
+	Float:PSD_DISCONNECT_TIME
+}
+
 new g_iKartPackModelIndices[sizeof MODEL_KART_PACKS]
 
 new GameState:g_gsGameState
@@ -390,8 +399,10 @@ new g_iPlayerSelectedHorn[MAX_PLAYERS + 1]
 new Float:g_fPlayerStartTime[MAX_PLAYERS + 1]
 new bool:g_bPlayerFinished[MAX_PLAYERS + 1]
 new Float:g_fPlayerBestTime[MAX_PLAYERS + 1]
+new bool:g_bPlayerSessionRestored[MAX_PLAYERS + 1]
 
 new Array:g_aCPEnts
+new Trie:g_tPlayerSavedSession
 
 new Array:g_aPlayerCPState
 new g_szPosList[512]
@@ -521,6 +532,7 @@ public plugin_init()
 	new szTargetName[16], szTarget[32]
 
 	g_aCPEnts = ArrayCreate(DataCPEnts)
+	g_tPlayerSavedSession = TrieCreate()
 
 	new iCPEnt = NULLENT, iCPId, eCPEnts[DataCPEnts]
 	new Float:vCPOrigin[3], Float:vCPMins[3], Float:vCPMaxs[3]
@@ -691,8 +703,11 @@ public client_putinserver(iPlayer)
 
 public client_disconnected(iPlayer)
 {
+	save_player_session(iPlayer)
+
 	g_iPlayerSelectedChar[iPlayer] = -1
 	g_iPlayerSelectedHorn[iPlayer] = 0
+	g_bPlayerSessionRestored[iPlayer] = false
 
 	clear_player_data(iPlayer)
 	set_player_game_state(iPlayer, PGS_DISCONNECTED)
@@ -903,6 +918,70 @@ set_player_game_state(iPlayer, PlayerGameState:playerGameState)
 	ExecuteForward(g_fwForwards[FWD_ID_PLAYER_GAME_STATE_SET], _, iPlayer, playerGameState)
 
 	g_pgsPlayerGameState[iPlayer] = playerGameState
+}
+
+load_player_session(iPlayer)
+{
+	new szAuthId[32]
+	get_user_authid(iPlayer, szAuthId, charsmax(szAuthId))
+
+	new aSessionData[PlayerSessionData]
+	if (!TrieGetArray(g_tPlayerSavedSession, szAuthId, aSessionData, sizeof aSessionData))
+		return
+
+	set_player_frags(iPlayer, aSessionData[PSD_FRAGS])
+
+	if (g_pCvarGameMode == KGM_TRIALCOURSE)
+	{
+		if (aSessionData[PSD_START_TIME] > 0.0)
+		{
+			new Float:fDiffTime = get_gametime() - aSessionData[PSD_DISCONNECT_TIME]
+			g_fPlayerStartTime[iPlayer] = aSessionData[PSD_START_TIME] + fDiffTime
+			g_iPlayerCurrLap[iPlayer] = 0
+		}
+
+		if (!aSessionData[PSD_FINISHED])
+		{
+			new iNextCPId = aSessionData[PSD_PASSED_CP]
+			if (iNextCPId > 0)
+			{
+				new eCPEnts[DataCPEnts]
+				ArrayGetArray(g_aCPEnts, iNextCPId - 1, eCPEnts)
+
+				new iResetEnt = eCPEnts[CPENT_RESET]
+				if (iResetEnt > 0)
+				{
+					get_entvar(iResetEnt, var_origin, g_vSpawnOrigin[iPlayer])
+					get_entvar(iResetEnt, var_angles, g_vSpawnAngles[iPlayer])
+				}
+
+				ArrayGetArray(g_aCPEnts, iNextCPId, eCPEnts)
+				g_iPlayerNextCP[iPlayer] = eCPEnts[CPENT_CP]
+
+				g_iPlayerPrevCPId[iPlayer] = (iNextCPId - 1) % ArraySize(g_aCPEnts)
+				g_iPlayerPassedCP[iPlayer] = iNextCPId
+
+				new iCarEnt = g_iCarsEnt[iPlayer]
+				set_entvar(iCarEnt, var_origin, g_vSpawnOrigin[iPlayer])
+				set_entvar(iCarEnt, var_angles, g_vSpawnAngles[iPlayer])
+			}
+		}
+	}
+}
+
+save_player_session(iPlayer)
+{
+	new szAuthId[32]
+	get_user_authid(iPlayer, szAuthId, charsmax(szAuthId))
+
+	new aSessionData[PlayerSessionData]
+	aSessionData[PSD_PASSED_CP] = g_iPlayerPassedCP[iPlayer]
+	aSessionData[PSD_FINISHED] = g_bPlayerFinished[iPlayer]
+	aSessionData[PSD_FRAGS] = floatround(get_entvar(iPlayer, var_frags))
+	aSessionData[PSD_START_TIME] = g_fPlayerStartTime[iPlayer]
+	aSessionData[PSD_DISCONNECT_TIME] = get_gametime()
+
+	TrieSetArray(g_tPlayerSavedSession, szAuthId, aSessionData, sizeof aSessionData)
 }
 
 apply_checkpoints(bool:bReverse)
@@ -1262,6 +1341,7 @@ ready_player(iPlayer)
 	else
 	{
 		set_car_waiting(iCarEnt)
+		g_iPlayerPassedCP[iPlayer] = -1
 	}
 
 	new iUIEnt = g_iUIEnt[iPlayer]
@@ -1283,7 +1363,9 @@ ready_player(iPlayer)
 			change_task(TASK_WAITPLAYERS, float(g_pCvarStartWaitingTime))
 	}
 
-	g_iPlayerPassedCP[iPlayer] = -1
+	if (!g_bPlayerSessionRestored[iPlayer])
+		load_player_session(iPlayer)
+	g_bPlayerSessionRestored[iPlayer] = true
 }
 
 start_player(iPlayer)
@@ -2460,10 +2542,7 @@ reset_car(iCarEnt, iPlayer)
 	if (g_bPlayerFinished[iPlayer])
 	{
 		if (g_pCvarGameMode != KGM_TRIALCOURSE)
-		{
 			set_car_waiting(iCarEnt)
-			return
-		}
 	}
 
 	new iTornadoEnt = NULLENT
@@ -3866,16 +3945,8 @@ touch_checkpoint(iEnt, iToucher)
 					client_print_color(i, iPlayer, "%s%L", CHAT_TAG, i, "KART_TRIAL_FINISH_ALL", iPlayer, iMins, iSeconds, iMSecond)
 			}
 
-			new Float:fPlayerFrags = get_entvar(iPlayer, var_frags) + 1.0
-			set_entvar(iPlayer, var_frags, fPlayerFrags)
-
-			message_begin(MSG_ALL, g_msgScoreInfo)
-			write_byte(iPlayer)
-			write_short(floatround(fPlayerFrags))
-			write_short(0)
-			write_short(0)
-			write_short(get_member(iPlayer, m_iTeam))
-			message_end()
+			new Float:fPlayerFrags = Float:get_entvar(iPlayer, var_frags) + 1.0
+			set_player_frags(iPlayer, floatround(fPlayerFrags))
 
 			reset_player_car_chill(iPlayer, iToucher)
 
@@ -3920,18 +3991,9 @@ touch_checkpoint(iEnt, iToucher)
 				iSoundFinishId = g_iFinPlayersNum + 1
 			client_cmd(iPlayer, "spk ^"%s^"", SOUNDS_FINISH[iSoundFinishId])
 
-			new Float:fPlayerFrags
-			fPlayerFrags = get_entvar(iPlayer, var_frags)
+			new Float:fPlayerFrags = Float:get_entvar(iPlayer, var_frags)
 			fPlayerFrags += MAX_PLAYERS - g_iFinPlayersNum
-			set_entvar(iPlayer, var_frags, fPlayerFrags)
-
-			message_begin(MSG_ALL, g_msgScoreInfo)
-			write_byte(iPlayer)
-			write_short(floatround(fPlayerFrags))
-			write_short(0)
-			write_short(0)
-			write_short(get_member(iPlayer, m_iTeam))
-			message_end()
+			set_player_frags(iPlayer, floatround(fPlayerFrags))
 
 			client_print(iPlayer, print_center, "%L", iPlayer, "KART_FINISH")
 			set_car_waiting(iToucher)
@@ -4451,6 +4513,19 @@ set_player_view(iPlayer, iTarget)
 
 	engfunc(EngFunc_SetView, iPlayer, iTarget)
 	client_cmd(iPlayer, "stopsound")
+}
+
+set_player_frags(iPlayer, iFrags)
+{
+	set_entvar(iPlayer, var_frags, float(iFrags))
+
+	message_begin(MSG_ALL, g_msgScoreInfo)
+	write_byte(iPlayer)
+	write_short(iFrags)
+	write_short(0)
+	write_short(0)
+	write_short(get_member(iPlayer, m_iTeam))
+	message_end()
 }
 
 reverse_ent(iEnt, Float:vPivot[3])
